@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "glitchlab"
+version = "0.1.0"
+description = "GLITCHLAB — The Agentic Dev Engine. Build Weird. Ship Clean."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "Adjective LLC"}
+]
+
+dependencies = [
+    "litellm>=1.40.0",
+    "pydantic>=2.5.0",
+    "rich>=13.7.0",
+    "typer>=0.9.0",
+    "pyyaml>=6.0",
+    "gitpython>=3.1.40",
+    "httpx>=0.27.0",
+    "tenacity>=8.2.0",
+    "python-dotenv>=1.0.0",
+    "loguru>=0.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "ruff>=0.3.0",
+]
+
+[project.scripts]
+glitchlab = "glitchlab.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["glitchlab*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100

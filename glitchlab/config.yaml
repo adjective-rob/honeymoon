@@ -1,0 +1,82 @@
+# ============================================================
+# GLITCHLAB Configuration
+# "Build Weird. Ship Clean."
+# ============================================================
+
+# Model routing — agents never know which vendor backs them.
+# Names here map to LiteLLM model aliases.
+routing:
+  planner: "gemini/gemini-2.5-flash-lite"
+  implementer: "anthropic/claude-sonnet-4-20250514"
+  debugger: "anthropic/claude-sonnet-4-20250514"
+  security: "gemini/gemini-2.5-flash-lite"
+  release: "gemini/gemini-2.5-flash"
+  archivist: "gemini/gemini-2.5-flash-lite"
+
+# Budget + safety limits per task
+limits:
+  max_fix_attempts: 4
+  max_tokens_per_task: 150000
+  max_dollars_per_task: 10.0
+  require_plan_review: true
+  require_pr_review: true
+
+# Human intervention gates
+intervention:
+  pause_after_plan: true
+  pause_before_pr: true
+  pause_on_core_change: true
+  pause_on_budget_exceeded: true
+
+# Workspace isolation
+workspace:
+  worktree_dir: ".glitchlab/worktrees"
+  task_dir: ".glitchlab/tasks"
+  log_dir: ".glitchlab/logs"
+
+# Tool allowlist — only these commands may be executed by agents.
+# Patterns are prefix-matched. No shell expansion.
+allowed_tools:
+  - "cargo test"
+  - "cargo fmt"
+  - "cargo clippy"
+  - "cargo build"
+  - "cargo check"
+  - "npm test"
+  - "npm run lint"
+  - "npm run build"
+  - "python -m pytest"
+  - "python -m ruff"
+  - "go test"
+  - "go build"
+  - "go vet"
+  - "git diff"
+  - "git add"
+  - "git commit"
+  - "git status"
+  - "git log"
+  - "gh pr create"
+  - "gh issue view"
+  - "gh issue list"
+  - "make"
+  - "prelude export"
+  - "prelude update"
+
+# Blocked patterns — these are never allowed regardless of allowlist.
+blocked_patterns:
+  - "rm -rf"
+  - "curl"
+  - "wget"
+  - "sudo"
+  - "> /dev"
+  - "| bash"
+  - "eval("
+  - "exec("
+
+# Boundary protection rules
+boundaries:
+  # Paths that require --allow-core flag
+  protected_paths: []
+  # Example for Zephyr:
+  # - "crates/zephyr-core"
+  # - "crates/zephyr-envelope"
