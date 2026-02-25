@@ -50,11 +50,14 @@ Output schema:
 
 Rules:
 - Be precise about file paths. Use the file context provided.
-- Keep steps minimal. Fewer steps = fewer errors.
+- MAX 2 FILES MODIFIED PER PLAN. If the objective requires more, isolate the most independent module and only plan for that.
+- Keep steps minimal. Fewer steps = fewer patch errors.
 - Flag core changes honestly — this triggers human review.
 - If the task is ambiguous, say so in risk_notes.
 - Never suggest changes outside the task scope.
 - Consider test strategy for every plan.
+- DO NOT add steps to run tests, formatters, or CLI commands. You only plan file creations, modifications, and deletions.
+- Every step MUST have at least one valid file path in the 'files' array.
 """
 
     def build_messages(self, context: AgentContext) -> list[dict[str, str]]:

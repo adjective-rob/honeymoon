@@ -6,13 +6,12 @@
 # Model routing — agents never know which vendor backs them.
 # Names here map to LiteLLM model aliases.
 routing:
-  planner: "gemini/gemini-2.5-flash-lite"
-  implementer: "anthropic/claude-sonnet-4-20250514"
-  debugger: "anthropic/claude-sonnet-4-20250514"
-  security: "gemini/gemini-2.5-flash-lite"
-  release: "gemini/gemini-2.5-flash"
-  archivist: "gemini/gemini-2.5-flash-lite"
-
+  planner: "openai/gpt-5.2"
+  implementer: "openai/gpt-5.2"
+  debugger: "openai/gpt-5.2"
+  security: "openai/gpt-5-nano"
+  release: "openai/gpt-5-nano"
+  archivist: "openai/gpt-5-nano"
 # Budget + safety limits per task
 limits:
   max_fix_attempts: 4
@@ -80,3 +79,7 @@ boundaries:
   # Example for Zephyr:
   # - "crates/zephyr-core"
   # - "crates/zephyr-envelope"
+
+context:
+  brain: ~/.glitchlab/brain
+  min_version: "1.2.0"

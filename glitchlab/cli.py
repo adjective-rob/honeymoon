@@ -458,6 +458,80 @@ def history(
 
     console.print(table)
 
+# ---------------------------------------------------------------------------
+# Audit
+# ---------------------------------------------------------------------------
+
+@app.command()
+def audit(
+    repo: Path = typer.Option(..., help="Path to the repository to audit"),
+    kind: str = typer.Option(None, help="Filter by finding kind: missing_doc, todo, complex_function"),
+    dry_run: bool = typer.Option(False, help="Print findings without generating task files"),
+    output_dir: Path = typer.Option(None, help="Directory to write task YAMLs (default: .glitchlab/tasks/queue)"),
+):
+    """
+    Scan a repository for actionable findings and generate GLITCHLAB task files.
+    """
+    from glitchlab.auditor import Scanner, TaskWriter
+    from glitchlab.router import Router
+
+    repo_path = repo.resolve()
+    if not repo_path.exists():
+        console.print(f"[red]Repository not found: {repo_path}[/]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[bold dim]🔍 [AUDITOR] Scanning {repo_path.name}...[/]")
+    scanner = Scanner(repo_path)
+    result = scanner.scan()
+
+    summary = result.summary()
+    console.print(f"  [dim]Scanned {summary['files_scanned']} files, found {summary['total']} findings[/]")
+
+    findings = result.findings
+    if kind:
+        findings = [f for f in findings if f.kind == kind]
+        console.print(f"  [dim]Filtered to {len(findings)} findings of kind '{kind}'[/]")
+
+    if not findings:
+        console.print("[green]✅ No findings. Codebase looks clean![/]")
+        return
+
+    table = Table(title="Findings", border_style="yellow")
+    table.add_column("Kind", style="dim")
+    table.add_column("File")
+    table.add_column("Line", style="dim")
+    table.add_column("Description")
+    table.add_column("Severity")
+
+    for f in findings[:50]:
+        color = {"high": "red", "medium": "yellow", "low": "dim"}.get(f.severity, "dim")
+        table.add_row(f.kind, f.file, str(f.line), f.description[:80], f"[{color}]{f.severity}[/]")
+
+    console.print(table)
+
+    if len(findings) > 50:
+        console.print(f"[dim]... and {len(findings) - 50} more[/]")
+
+    if dry_run:
+        console.print("\n[yellow]Dry run — no task files written.[/]")
+        return
+
+    out_dir = output_dir or (repo_path / ".glitchlab" / "tasks" / "queue")
+    console.print(f"\n[bold dim]📝 [AUDITOR] Generating task files → {out_dir}[/]")
+
+    config = load_config(repo_path)
+    router = Router(config)
+    writer = TaskWriter(router, out_dir)
+
+    result.findings = findings
+    written = writer.write_tasks(result)
+
+    console.print(Panel(
+        "\n".join(f"  {p.name}" for p in written),
+        title=f"✅ {len(written)} task files written",
+        border_style="green",
+    ))
+    console.print(f"\nRun tasks with: [bold]glitchlab batch --repo {repo_path} --tasks-dir {out_dir}[/]")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -500,3 +574,39 @@ def _configure_logging(verbose: bool) -> None:
 
 if __name__ == "__main__":
     app()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

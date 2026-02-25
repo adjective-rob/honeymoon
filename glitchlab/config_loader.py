@@ -18,12 +18,12 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 
 class RoutingConfig(BaseModel):
-    planner: str = "gemini/gemini-2.0-flash"
-    implementer: str = "anthropic/claude-sonnet-4-20250514"
-    debugger: str = "anthropic/claude-sonnet-4-20250514"
-    security: str = "gemini/gemini-2.0-flash"
-    release: str = "gemini/gemini-2.0-flash"
-    archivist: str = "gemini/gemini-2.0-flash"
+    planner: str = "openai/gpt-5-mini"
+    implementer: str = "openai/gpt-5.2"
+    debugger: str = "openai/gpt-5.2"
+    security: str = "openai/gpt-5-nano"
+    release: str = "openai/gpt-5-nano"
+    archivist: str = "openai/gpt-5-nano"
 
 
 class LimitsConfig(BaseModel):
@@ -49,6 +49,12 @@ class WorkspaceConfig(BaseModel):
 
 class BoundaryConfig(BaseModel):
     protected_paths: list[str] = Field(default_factory=list)
+    allow_test_modifications: bool = False
+
+
+class ContextConfig(BaseModel):
+    brain: str = "~/.glitchlab/brain"
+    min_version: str = "1.2.0"
 
 
 class GlitchLabConfig(BaseModel):
@@ -59,6 +65,7 @@ class GlitchLabConfig(BaseModel):
     allowed_tools: list[str] = Field(default_factory=list)
     blocked_patterns: list[str] = Field(default_factory=list)
     boundaries: BoundaryConfig = Field(default_factory=BoundaryConfig)
+    context: ContextConfig = Field(default_factory=ContextConfig)
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +115,7 @@ def validate_api_keys() -> dict[str, bool]:
     """Check which API keys are available."""
     return {
         "ANTHROPIC_API_KEY": bool(os.environ.get("ANTHROPIC_API_KEY")),
-        "GOOGLE_API_KEY": bool(os.environ.get("GOOGLE_API_KEY")),
-        "GEMINI_API_KEY": bool(os.environ.get("GEMINI_API_KEY")),
+        "OPENAI_API_KEY":    bool(os.environ.get("OPENAI_API_KEY")),
+        "GOOGLE_API_KEY":    bool(os.environ.get("GOOGLE_API_KEY")),
+        "GEMINI_API_KEY":    bool(os.environ.get("GEMINI_API_KEY")),
     }

@@ -1,5 +1,5 @@
 """
-GLITCHLAB ← Prelude Integration
+GLITCHLAB ← Prelude Integration (v1.2.0+)
 
 Bridges prelude-context (machine-readable codebase context)
 into the GLITCHLAB agent pipeline so every agent understands
@@ -8,17 +8,24 @@ decisions before it plans or writes a single line.
 
 Prelude is the memory. GLITCHLAB is the muscle.
 
+v1.2.0 changes:
+  - Prelude can now be called from outside the target repo
+  - Repo path passed as positional argument: `prelude export ~/path/to/repo`
+  - External brain path set via PRELUDE_ROOT env var
+  - No --brain flag — environment variable only
+
 Usage:
     prelude = PreludeContext(repo_path)
     if prelude.available:
-        prelude.refresh()           # re-export context
-        context_md = prelude.export()  # get markdown for agents
-        summary = prelude.summary()    # get structured summary
+        prelude.refresh()
+        prefix = prelude.build_agent_prefix()
+        summary = prelude.summary()
 """
 
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -26,22 +33,43 @@ from typing import Any
 
 from loguru import logger
 
+# Minimum supported Prelude version
+MIN_PRELUDE_VERSION = "1.2.0"
+
+
+class PreludeVersionError(RuntimeError):
+    """Raised when the installed Prelude version is too old."""
+    pass
+
 
 class PreludeContext:
     """
-    Interface to Prelude's .context/ directory and CLI.
+    Interface to Prelude's .context/ directory and CLI (v1.2.0+).
 
     Three modes of operation:
-      1. Full CLI available → can init, export, update, watch
+      1. Full CLI (v1.2.0+) available → can init, export, update
       2. .context/ exists but no CLI → read-only (uses cached files)
       3. Neither → gracefully disabled, agents get no project context
+
+    v1.2.0 key behavior:
+      - All CLI calls pass repo_path as a positional argument
+      - Never changes cwd — works from any directory
+      - PRELUDE_ROOT env var controls external brain location
     """
 
-    def __init__(self, repo_path: Path):
+    def __init__(self, repo_path: Path, brain_path: Path | None = None):
+        """
+        Args:
+            repo_path:  The repository to generate context for.
+            brain_path: Optional external brain directory (sets PRELUDE_ROOT).
+                        Defaults to ~/.glitchlab/brain if not specified.
+        """
         self.repo_path = repo_path.resolve()
+        self.brain_path = (brain_path or Path.home() / ".glitchlab" / "brain").resolve()
         self.context_dir = self.repo_path / ".context"
         self._cli_path = shutil.which("prelude")
         self._cached_export: str | None = None
+        self._version_checked = False
 
     # ------------------------------------------------------------------
     # Availability
@@ -63,16 +91,73 @@ class PreludeContext:
         return self.cli_available or self.context_exists
 
     # ------------------------------------------------------------------
+    # Version Enforcement
+    # ------------------------------------------------------------------
+
+    def get_version(self) -> str | None:
+        """Return the installed Prelude version string, or None if not installed."""
+        if not self.cli_available:
+            return None
+        try:
+            result = subprocess.run(
+                ["prelude", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return result.stdout.strip()
+        except Exception:
+            return None
+
+    def assert_version(self, min_version: str = MIN_PRELUDE_VERSION) -> None:
+        """
+        Raise PreludeVersionError if installed version is below min_version.
+        Call once at startup to prevent subtle breakage from old CLI versions.
+        """
+        version = self.get_version()
+        if version is None:
+            raise PreludeVersionError(
+                f"Prelude CLI not found. Install with: npm install -g prelude-context"
+            )
+        if self._version_tuple(version) < self._version_tuple(min_version):
+            raise PreludeVersionError(
+                f"Prelude {min_version}+ required. Found {version}. "
+                f"Upgrade with: npm install -g prelude-context"
+            )
+        logger.debug(f"[PRELUDE] Version {version} OK (>= {min_version})")
+
+    def check_version(self, min_version: str = MIN_PRELUDE_VERSION) -> bool:
+        """
+        Like assert_version but returns False instead of raising.
+        Use when version mismatch should be a warning, not a hard stop.
+        """
+        try:
+            self.assert_version(min_version)
+            return True
+        except PreludeVersionError as e:
+            logger.warning(f"[PRELUDE] {e}")
+            return False
+
+    # ------------------------------------------------------------------
     # CLI Operations
     # ------------------------------------------------------------------
 
-    def init(self) -> bool:
-        """Run `prelude init` to analyze the repo and create .context/."""
+    def init(self, force: bool = False) -> bool:
+        """
+        Run `prelude init <repo_path>` to analyze the repo and create .context/.
+
+        Args:
+            force: Pass --force to overwrite existing .context/ directory.
+        """
         if not self.cli_available:
             logger.warning("[PRELUDE] CLI not installed. Run: npm install -g prelude-context")
             return False
 
-        result = self._run("init")
+        args = ["init", str(self.repo_path)]
+        if force:
+            args.append("--force")
+
+        result = self._run(*args)
         if result.returncode == 0:
             logger.info("[PRELUDE] Initialized .context/ directory")
             return True
@@ -80,12 +165,28 @@ class PreludeContext:
             logger.error(f"[PRELUDE] Init failed: {result.stderr}")
             return False
 
-    def update(self) -> bool:
-        """Run `prelude update` to refresh inferred context while preserving manual edits."""
+    def update(self, force: bool = False, dry_run: bool = False) -> bool:
+        """
+        Run `prelude update` to refresh inferred context while preserving manual edits.
+
+        Note: `update` does not take a [dir] argument in v1.2.0 — it reads
+        from the current context. We run it from repo_path as cwd.
+
+        Args:
+            force:   Overwrite all inferred fields.
+            dry_run: Preview changes without applying them.
+        """
         if not self.cli_available:
             return False
 
-        result = self._run("update")
+        args = ["update", "--silent"]
+        if force:
+            args.append("--force")
+        if dry_run:
+            args.append("--dry-run")
+
+        # update reads from cwd, so we pass cwd here only
+        result = self._run(*args, use_cwd=True)
         if result.returncode == 0:
             logger.info("[PRELUDE] Context updated")
             self._cached_export = None  # invalidate cache
@@ -97,7 +198,10 @@ class PreludeContext:
     def refresh(self) -> bool:
         """
         Ensure context is fresh before a GLITCHLAB run.
-        If .context/ exists, update it. If not, init it.
+
+        If .context/ exists → update it.
+        If not → init it.
+        Falls back to read-only mode if CLI unavailable but .context/ exists.
         """
         if not self.cli_available:
             if self.context_exists:
@@ -118,42 +222,46 @@ class PreludeContext:
         """
         Get the full Prelude context as markdown.
 
-        Reads .context/ files directly (fastest, no hang risk).
-        Only falls back to CLI export if no .context/ directory exists.
+        Prefers direct file reading (fastest, no subprocess risk).
+        Falls back to `prelude export <repo_path> --print --no-copy` if needed.
         """
         if self._cached_export:
             return self._cached_export
 
-        # Prefer direct file reading — no subprocess, no hang risk
+        # Prefer direct file reading — deterministic, no hang risk
         if self.context_exists:
             self._cached_export = self._read_context_files()
             if self._cached_export:
                 logger.info(f"[PRELUDE] Read context from files ({len(self._cached_export)} chars)")
                 return self._cached_export
 
-        # Fallback: try CLI export with short timeout
+        # Fallback: CLI export
         if self.cli_available:
             try:
-                result = self._run("export", "--no-clipboard")
+                result = self._run("export", str(self.repo_path), "--print", "--no-copy")
                 if result.returncode == 0 and result.stdout.strip():
                     self._cached_export = result.stdout.strip()
-                    logger.info(f"[PRELUDE] Exported context via CLI ({len(self._cached_export)} chars)")
+                    logger.info(f"[PRELUDE] Exported via CLI ({len(self._cached_export)} chars)")
                     return self._cached_export
+                else:
+                    logger.warning(f"[PRELUDE] CLI export failed: {result.stderr}")
             except Exception as e:
-                logger.warning(f"[PRELUDE] CLI export failed: {e}")
+                logger.warning(f"[PRELUDE] CLI export exception: {e}")
 
         return ""
 
     def summary(self) -> dict[str, Any]:
         """
-        Get structured summary of project context.
-        Useful for logging and status display.
+        Get structured summary of project context for logging and status display.
         """
         summary: dict[str, Any] = {
             "available": self.available,
             "cli_installed": self.cli_available,
+            "cli_version": self.get_version(),
             "context_dir_exists": self.context_exists,
+            "brain_path": str(self.brain_path),
             "files": [],
+            "decisions_count": 0,
         }
 
         if self.context_exists:
@@ -162,7 +270,6 @@ class PreludeContext:
                 if f.is_file() and not f.name.endswith(".session.json")
             ]
 
-            # Try to extract key metadata
             project_file = self.context_dir / "project.json"
             if project_file.exists():
                 try:
@@ -187,33 +294,36 @@ class PreludeContext:
 
         return summary
 
+    def get_constraints(self) -> list[str]:
+        """Extract project constraints from .context/constraints.json if available."""
+        constraints_file = self.context_dir / "constraints.json"
+        if not constraints_file.exists():
+            return []
+        try:
+            data = json.loads(constraints_file.read_text())
+            if isinstance(data, list):
+                return [str(c) for c in data]
+            elif isinstance(data, dict):
+                constraints = []
+                for k, v in data.items():
+                    if isinstance(v, str):
+                        constraints.append(f"{k}: {v}")
+                    elif isinstance(v, list):
+                        for item in v:
+                            constraints.append(str(item))
+                return constraints
+        except json.JSONDecodeError:
+            pass
+        return []
+
     def get_decisions(self) -> list[str]:
         """Read all Architecture Decision Records as text."""
         decisions = []
         decisions_dir = self.context_dir / "decisions"
-
         if decisions_dir.is_dir():
             for md_file in sorted(decisions_dir.glob("*.md")):
                 decisions.append(md_file.read_text())
-
         return decisions
-
-    def get_constraints(self) -> list[str]:
-        """Extract project constraints from .context/ if available."""
-        constraints_file = self.context_dir / "constraints.json"
-        if constraints_file.exists():
-            try:
-                data = json.loads(constraints_file.read_text())
-                if isinstance(data, list):
-                    return [str(c) for c in data]
-                elif isinstance(data, dict):
-                    return [
-                        f"{k}: {v}" for k, v in data.items()
-                        if isinstance(v, str)
-                    ]
-            except json.JSONDecodeError:
-                pass
-        return []
 
     # ------------------------------------------------------------------
     # Agent Context Builder
@@ -221,10 +331,10 @@ class PreludeContext:
 
     def build_agent_prefix(self, max_chars: int = 8000) -> str:
         """
-        Build a context prefix suitable for injecting into agent prompts.
+        Build a context prefix for injecting into agent prompts.
 
-        This is the key integration point — this string gets prepended
-        to agent context so every agent understands the project.
+        This is the primary integration point — prepended to every agent's
+        context so they understand the project before planning or coding.
 
         Args:
             max_chars: Truncate to this length to manage token budget.
@@ -240,7 +350,6 @@ class PreludeContext:
             "Respect all constraints and decisions when planning or implementing.\n\n"
         )
 
-        # Truncate if needed, preserving the beginning (most important: stack + arch)
         remaining = max_chars - len(prefix)
         if len(context) > remaining:
             context = context[:remaining] + "\n\n[... context truncated for token budget ...]"
@@ -251,33 +360,49 @@ class PreludeContext:
     # Internal
     # ------------------------------------------------------------------
 
-    def _run(self, *args: str) -> subprocess.CompletedProcess:
-        """Run a prelude CLI command."""
+    def _run(self, *args: str, use_cwd: bool = False) -> subprocess.CompletedProcess:
+        """
+        Run a prelude CLI command.
+
+        Sets PRELUDE_ROOT env var if brain_path is configured.
+        Never changes cwd unless use_cwd=True (only needed for `update`).
+        """
+        env = os.environ.copy()
+        if self.brain_path:
+            env["PRELUDE_ROOT"] = str(self.brain_path)
+            logger.debug(f"[PRELUDE] PRELUDE_ROOT={self.brain_path}")
+
         cmd = ["prelude", *args]
+        logger.debug(f"[PRELUDE] Running: {' '.join(cmd)}")
+
         return subprocess.run(
             cmd,
-            cwd=self.repo_path,
+            cwd=str(self.repo_path) if use_cwd else None,
+            env=env,
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=15,
         )
 
     def _read_context_files(self) -> str:
-        """Read .context/ files directly as a fallback when CLI isn't available."""
+        """Read .context/ files directly and assemble into a single markdown string."""
         parts = []
 
-        # Priority order for context assembly
+        # Priority order — most useful context first
         file_order = [
             "project.json",
             "stack.json",
+            "architecture.json",
             "architecture.md",
             "constraints.json",
             "changelog.md",
         ]
 
+        seen = set()
         for fname in file_order:
             fpath = self.context_dir / fname
             if fpath.exists():
+                seen.add(fname)
                 content = fpath.read_text().strip()
                 if content:
                     parts.append(f"## {fname}\n\n{content}")
@@ -290,16 +415,24 @@ class PreludeContext:
                 if content:
                     parts.append(f"## Decision: {md_file.stem}\n\n{content}")
 
-        # Any other files not yet captured
-        seen = set(file_order)
+        # Remaining files not yet captured
         for fpath in sorted(self.context_dir.iterdir()):
             if (
                 fpath.is_file()
                 and fpath.name not in seen
                 and not fpath.name.endswith(".session.json")
+                and not fpath.suffix == ".session.json"
             ):
                 content = fpath.read_text().strip()
                 if content:
                     parts.append(f"## {fpath.name}\n\n{content}")
 
         return "\n\n---\n\n".join(parts)
+
+    @staticmethod
+    def _version_tuple(version: str) -> tuple[int, ...]:
+        """Convert version string to comparable tuple. e.g. '1.2.0' → (1, 2, 0)"""
+        try:
+            return tuple(int(x) for x in version.strip().split("."))
+        except (ValueError, AttributeError):
+            return (0, 0, 0)

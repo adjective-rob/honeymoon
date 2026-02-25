@@ -60,12 +60,11 @@ class BudgetTracker:
             self.usage.completion_tokens += getattr(usage, "completion_tokens", 0)
             self.usage.total_tokens += getattr(usage, "total_tokens", 0)
 
-        # LiteLLM cost estimation
         try:
             cost = litellm.completion_cost(completion_response=response)
             self.usage.estimated_cost += cost
         except Exception:
-            pass  # Cost estimation isn't always available
+            pass
 
         self.usage.call_count += 1
 
@@ -77,6 +76,49 @@ class BudgetTracker:
             "tokens_remaining": self.tokens_remaining,
             "dollars_remaining": round(self.dollars_remaining, 4),
         }
+
+
+# ---------------------------------------------------------------------------
+# Model capability helpers
+# ---------------------------------------------------------------------------
+
+def _is_gpt5_model(model: str) -> bool:
+    """GPT-5 family models have restricted parameter support."""
+    normalized = model.lower().replace("openai/", "")
+    return normalized.startswith("gpt-5")
+
+
+def _is_o_series_model(model: str) -> bool:
+    """OpenAI o-series reasoning models don't support temperature."""
+    normalized = model.lower().replace("openai/", "")
+    return normalized.startswith("o1") or normalized.startswith("o3") or normalized.startswith("o4")
+
+
+def _build_kwargs(
+    model: str,
+    messages: list[dict[str, str]],
+    temperature: float,
+    max_tokens: int,
+    response_format: dict | None,
+) -> dict[str, Any]:
+    """
+    Build LiteLLM kwargs with per-model param filtering.
+    Different model families support different parameters.
+    """
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "messages": messages,
+        "max_tokens": max_tokens,
+    }
+
+    # GPT-5 and o-series models don't support arbitrary temperature
+    if not _is_gpt5_model(model) and not _is_o_series_model(model):
+        kwargs["temperature"] = temperature
+
+    if response_format:
+        kwargs["response_format"] = response_format
+
+    return kwargs
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +161,6 @@ class Router:
             "archivist": config.routing.archivist,
         }
 
-        # Suppress litellm verbose logging
         litellm.suppress_debug_info = True
 
     def resolve_model(self, role: str) -> str:
@@ -144,7 +185,7 @@ class Router:
         Args:
             role: Agent role name (planner, implementer, etc.)
             messages: Standard chat messages [{"role": ..., "content": ...}]
-            temperature: Sampling temperature
+            temperature: Sampling temperature (dropped automatically for models that don't support it)
             max_tokens: Max response tokens
             response_format: Optional JSON schema for structured output
         """
@@ -158,19 +199,11 @@ class Router:
 
         logger.debug(f"[ROUTER] {role} → {model} ({len(messages)} messages)")
 
-        kwargs: dict[str, Any] = {
-            "model": model,
-            "messages": messages,
-            "temperature": temperature,
-            "max_tokens": max_tokens,
-        }
-        if response_format:
-            kwargs["response_format"] = response_format
+        kwargs = _build_kwargs(model, messages, temperature, max_tokens, response_format)
 
         response = litellm.completion(**kwargs)
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
-        # Track budget
         self.budget.record(response)
 
         content = response.choices[0].message.content or ""

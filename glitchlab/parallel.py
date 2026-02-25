@@ -19,10 +19,43 @@ from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
-from glitchlab.config_loader import load_config
-from glitchlab.controller import Controller, Task
-
 console = Console()
+
+
+def _run_single_task(
+    task_file: Path, 
+    repo_path: Path, 
+    allow_core: bool, 
+    test_command: str | None
+) -> dict[str, Any]:
+    """
+    Top-level function for ProcessPoolExecutor to pickle correctly.
+    Runs a single task in a completely isolated process.
+    """
+    try:
+        # Imports are handled locally to ensure a fresh state in the spawned process
+        # and prevent any cross-process pickling issues with complex objects.
+        from glitchlab.config_loader import load_config
+        from glitchlab.controller import Controller, Task
+        
+        config = load_config(repo_path)
+        task = Task.from_yaml(task_file)
+        
+        controller = Controller(
+            repo_path=repo_path,
+            config=config,
+            allow_core=allow_core,
+            auto_approve=True,
+            test_command=test_command,
+        )
+        return controller.run(task)
+    except Exception as e:
+        logger.error(f"[PARALLEL] Task failed: {task_file.name} — {e}")
+        return {
+            "task_id": task_file.stem,
+            "status": "error",
+            "error": str(e),
+        }
 
 
 def run_parallel(
@@ -34,9 +67,9 @@ def run_parallel(
     test_command: str | None = None,
 ) -> list[dict[str, Any]]:
     """
-    Run multiple tasks in parallel.
+    Run multiple tasks in parallel using Process Isolation.
 
-    Each task gets its own Controller, Workspace, and budget.
+    Each task gets its own process, Controller, Workspace, and budget.
     Results are collected and returned together.
 
     Args:
@@ -48,7 +81,6 @@ def run_parallel(
         test_command: Override test command
     """
     repo_path = repo_path.resolve()
-    config = load_config(repo_path)
 
     console.print(f"\n[bold]⚡ GLITCHLAB Parallel Mode — {len(task_files)} tasks, {max_workers} workers[/]\n")
 
@@ -58,29 +90,10 @@ def run_parallel(
 
     results: list[dict[str, Any]] = []
 
-    def _run_single(task_file: Path) -> dict[str, Any]:
-        """Run a single task (called in thread pool)."""
-        try:
-            task = Task.from_yaml(task_file)
-            controller = Controller(
-                repo_path=repo_path,
-                config=config,
-                allow_core=allow_core,
-                auto_approve=True,
-                test_command=test_command,
-            )
-            return controller.run(task)
-        except Exception as e:
-            logger.error(f"[PARALLEL] Task failed: {task_file.name} — {e}")
-            return {
-                "task_id": task_file.stem,
-                "status": "error",
-                "error": str(e),
-            }
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+    # Using ProcessPoolExecutor to prevent Git/subprocess race conditions
+    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_file = {
-            executor.submit(_run_single, tf): tf
+            executor.submit(_run_single_task, tf, repo_path, allow_core, test_command): tf
             for tf in task_files
         }
 

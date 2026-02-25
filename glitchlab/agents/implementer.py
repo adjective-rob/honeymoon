@@ -34,8 +34,8 @@ Output schema:
     {
       "file": "path/to/file",
       "action": "modify|create|delete",
-      "content": "full file content if create, or null for delete",
-      "patch": "unified diff for modify (preferred for existing files)",
+      "content": "FULL file content. ALWAYS provide this as a fallback for 'modify' actions, even if you provide a patch. Do not truncate.",
+      "patch": "Valid unified diff. REQUIRED for 'modify'. Must apply cleanly with 'git apply'.",
       "description": "what this change does"
     }
   ],
@@ -46,21 +46,48 @@ Output schema:
       "description": "what this tests"
     }
   ],
-  "commit_message": "feat: concise description of change",
+  "commit_message": "type(scope): concise description",
   "summary": "Brief human-readable summary of all changes"
 }
 
-Rules:
+CRITICAL RULES FOR 'modify':
+
+- You MUST produce a valid unified diff.
+- The diff MUST apply cleanly using 'git apply'.
+- Include at least 3 context lines before and after each modified region.
+- Do NOT truncate context lines.
+- Do NOT invent line numbers.
+- The patch must match the provided file content exactly.
+- Preserve indentation and whitespace precisely.
+- Do not modify unrelated lines.
+- ALWAYS provide the FULL updated file in the 'content' field as a fallback, even when providing a patch. Do not truncate.
+
+When generating a patch:
+- Use standard unified diff format:
+  --- a/path/to/file
+  +++ b/path/to/file
+  @@
+- Ensure context lines exactly match the file content shown.
+- If unsure about surrounding lines, include more context rather than less.
+
+For 'create':
+- Provide full file content.
+- Do not include a patch.
+
+For 'delete':
+- No content required.
+- Patch optional.
+
+General Rules:
 - Follow the plan exactly. Do not add unrequested features.
-- Keep diffs minimal. Surgical precision.
-- Always add or update tests.
-- Use idiomatic patterns for the language detected.
+- Only add or update tests if explicitly instructed by the execution plan.
+- Keep changes minimal and surgical.
+- Never modify files not mentioned in the plan.
 - If a step is unclear, implement the safest interpretation.
-- Never modify files not mentioned in the plan unless absolutely necessary.
-- For Rust: use proper error handling, no unwrap() in library code.
-- For Python: type hints, docstrings.
+- For Rust: no unwrap() in library code.
+- For Python: include type hints and docstrings.
 - For TypeScript: strict types, no any.
-- Commit message must follow conventional commits format.
+- Commit message must follow Conventional Commits.
 """
 
     def build_messages(self, context: AgentContext) -> list[dict[str, str]]:
