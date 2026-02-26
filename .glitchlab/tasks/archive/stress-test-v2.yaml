@@ -1,0 +1,11 @@
+id: stress-test-001
+objective: "Implement a unified logging prefix '[GLITCHLAB]' for all console.print statements in cli.py, controller.py, and router.py."
+constraints:
+  - "Do not change the actual message content, only prepend the prefix."
+  - "Use surgical blocks for large files."
+acceptance:
+  - "cli.py uses the new prefix."
+  - "controller.py uses the new prefix."
+  - "router.py uses the new prefix."
+risk: medium
+mode: evolution

@@ -1,0 +1,12 @@
+id: agent-self-heal-001
+objective: "Update the Controller's test execution logic to support a recursive retry loop on failure."
+steps:
+  - "Modify glitchlab/controller.py to catch test failures."
+  - "Integrate a call to the DebuggerAgent when a failure is caught."
+  - "Pass the stdout/stderr from the failed test as context to the Debugger."
+  - "Apply the Debugger's suggested surgical blocks and re-run tests."
+constraints:
+  - "Limit retries to 3 attempts to prevent infinite loops and budget exhaustion."
+  - "Use the existing surgical_blocks infrastructure for all fixes."
+risk: high
+mode: evolution

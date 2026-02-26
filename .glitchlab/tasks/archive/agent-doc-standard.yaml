@@ -1,0 +1,10 @@
+id: agent-docs-001
+objective: "Standardize all docstrings in glitchlab/agents/planner.py to Google-style format (Args, Returns, Raises)."
+constraints:
+  - "Do not change any functional code logic."
+  - "Ensure the Archivist's build_messages method is also documented."
+acceptance:
+  - "PlannerAgent docstrings are consistent."
+  - "Tests pass (verification of no logic regression)."
+risk: low
+mode: maintenance
