@@ -25,6 +25,9 @@ class RoutingConfig(BaseModel):
     release: str = "gemini/gemini-3-flash-preview"
     archivist: str = "gemini/gemini-3-flash-preview"
 
+class FallbacksConfig(BaseModel):
+    high_tier: str = "openai/gpt-5.2"
+    low_tier: str = "openai/gpt-5-nano"
 
 class LimitsConfig(BaseModel):
     max_fix_attempts: int = 4
