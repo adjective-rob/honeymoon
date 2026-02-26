@@ -62,6 +62,7 @@ class ContextConfig(BaseModel):
 
 class GlitchLabConfig(BaseModel):
     routing: RoutingConfig = Field(default_factory=RoutingConfig)
+    fallbacks: FallbacksConfig = Field(default_factory=FallbacksConfig)
     limits: LimitsConfig = Field(default_factory=LimitsConfig)
     intervention: InterventionConfig = Field(default_factory=InterventionConfig)
     workspace: WorkspaceConfig = Field(default_factory=WorkspaceConfig)
