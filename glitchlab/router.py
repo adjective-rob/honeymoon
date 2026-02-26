@@ -1,9 +1,9 @@
 """
-GLITCHLAB Router — Vendor-Agnostic Model Abstraction (v2.1)
+GLITCHLAB Router — Vendor-Agnostic Model Abstraction (v2.2)
 
 Routes agent calls through LiteLLM so agents never know
 which vendor is backing them. Handles budget tracking,
-retries, structured logging, and Proactive Context Headroom.
+retries, structured logging, and automatic 503 failover.
 """
 
 from __future__ import annotations
@@ -266,7 +266,19 @@ class Router:
 
         kwargs = _build_kwargs(model, safe_messages, temperature, max_tokens, response_format)
 
-        response = litellm.completion(**kwargs)
+        try:
+            response = litellm.completion(**kwargs)
+        except litellm.exceptions.ServiceUnavailableError:
+            # Determine which fallback to use based on the primary model tier
+            # Logic: If primary is a preview/pro model, use high_tier fallback.
+            fallback_model = self.config.fallbacks.high_tier
+            logger.warning(f"⚠️ [ROUTER] 503 Service Unavailable from {model}. Failing over to {fallback_model}...")
+            
+            # Rebuild kwargs for the fallback model
+            kwargs = _build_kwargs(fallback_model, safe_messages, temperature, max_tokens, response_format)
+            response = litellm.completion(**kwargs)
+
+        # Accuracy Fix: Place calculation here to capture total time spent including failover
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
         self.budget.record(response)
