@@ -1,29 +1,30 @@
 # ============================================================
-# GLITCHLAB Configuration
-# "Build Weird. Ship Clean."
+# HONEYMOON Configuration
+# "The Hive Mind Dev Engine"
 # ============================================================
 
 # Model routing — agents never know which vendor backs them.
-# Names here map to LiteLLM model aliases.
+# Default: nano for everything. Cheap, fast, runs anywhere.
+# Override per-repo in .honeymoon/config.yaml for heavier models.
 routing:
-  planner: "openai/gpt-5.4"
-  implementer: "openai/gpt-5.4"
-  debugger: "openai/gpt-5.4"
-  auditor: "openai/gpt-5.4-mini"
-  security: "openai/gpt-5.4-mini"
-  release: "openai/gpt-5.4-mini"
-  archivist: "openai/gpt-5.4-mini"
-  testgen: "openai/gpt-5.4"
+  planner: "openai/gpt-5.5-nano"
+  implementer: "openai/gpt-5.5-nano"
+  debugger: "openai/gpt-5.5-nano"
+  auditor: "openai/gpt-5.5-nano"
+  security: "openai/gpt-5.5-nano"
+  release: "openai/gpt-5.5-nano"
+  archivist: "openai/gpt-5.5-nano"
+  testgen: "openai/gpt-5.5-nano"
 
 fallbacks:
-  high_tier: "openai/gpt-5.4"
-  low_tier: "openai/gpt-5.4-mini"
+  high_tier: "openai/gpt-5.5-nano"
+  low_tier: "openai/gpt-5.5-nano"
 
 # Budget + safety limits per task
 limits:
-  max_fix_attempts: 4
-  max_tokens_per_task: 1000000
-  max_dollars_per_task: 10.0
+  max_fix_attempts: 3
+  max_tokens_per_task: 200000
+  max_dollars_per_task: 0.50
   require_plan_review: true
   require_pr_review: true
 
@@ -36,9 +37,9 @@ intervention:
 
 # Workspace isolation
 workspace:
-  worktree_dir: ".glitchlab/worktrees"
-  task_dir: ".glitchlab/tasks"
-  log_dir: ".glitchlab/logs"
+  worktree_dir: ".honeymoon/worktrees"
+  task_dir: ".honeymoon/tasks"
+  log_dir: ".honeymoon/logs"
 
 # Tool allowlist — only these commands may be executed by agents.
 # Patterns are prefix-matched. No shell expansion.
@@ -89,20 +90,16 @@ blocked_patterns:
 boundaries:
   # Paths that require --allow-core flag
   protected_paths: []
-  # Example for Zephyr:
-  # - "crates/zephyr-core"
-  # - "crates/zephyr-envelope"
 
 context:
-  brain: ~/.glitchlab/brain
+  brain: ~/.honeymoon/brain
   min_version: "1.2.0"
 
 automation:
   rebase_before_pr: true
   auto_merge_pr: false
 
-# DevSecOps pipeline — declarative step sequence.
-# Matches the controller's hardcoded order: Plan → Implement → Debug → Testgen → Security → Release → Archivist.
+# Pipeline — Plan → Implement → Debug → Testgen → Security → Release → Archivist
 pipeline:
   - name: planner
     agent_role: planner
