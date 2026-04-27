@@ -63,7 +63,7 @@ from glitchlab.step_handlers import (
     PipelineState,
 )
 from glitchlab.task import Task
-from glitchlab.task_state import TaskState, StepState  # re-export
+from glitchlab.task_state import TaskState, StepState  # re-export  # noqa: F401
 
 console = Console()
 

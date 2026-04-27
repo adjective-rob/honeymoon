@@ -395,7 +395,7 @@ Produce your execution plan as JSON."""
         # Strip markdown code fences if present
         if content.startswith("```"):
             lines = content.split("\n")
-            lines = [l for l in lines if not l.strip().startswith("```") and not l.strip().lower() == "json"]
+            lines = [line for line in lines if not line.strip().startswith("```") and not line.strip().lower() == "json"]
             content = "\n".join(lines)
 
         try:

@@ -26,7 +26,6 @@ from rich.console import Console
 from rich.prompt import Confirm
 
 from glitchlab.agents import AgentResult
-from glitchlab.config_loader import PipelineStep
 from glitchlab.controller_utils import attest_controller_action
 from glitchlab.display import print_security_issues
 from glitchlab.doc_inserter import insert_doc_comments, write_adr

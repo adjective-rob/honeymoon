@@ -169,7 +169,7 @@ def _normalize_change(change: dict) -> dict:
         val = change.get(field)
         if val and val.strip().startswith("```"):
             lines = val.strip().split("\n")
-            lines = [l for l in lines if not l.strip().startswith("```")]
+            lines = [line for line in lines if not line.strip().startswith("```")]
             change[field] = "\n".join(lines)
 
     return change
@@ -195,18 +195,13 @@ def apply_changes(
         full_content = change.get("content")
 
         if change.get("_already_applied"):
+            applied.append(f"AGENT_APPLIED {filename}")
+            logger.info(f"[APPLY] Skipping {filename} — already applied by agent tool.")
             continue
         if not action or not filename:
             raise ValueError(f"Invalid change payload: {change}")
         if action in {"create", "modify"} and not full_content and not surgical_blocks:
             raise ValueError(f"Invalid change payload: {change}")
-
-        # ── SAFETY CHECK: Detect native agent modifications ──
-        # If an agent used 'write_file' tool, skip manual application.
-        if change.get("_already_applied"):
-            applied.append(f"AGENT_APPLIED {filename}")
-            logger.info(f"[APPLY] Skipping {filename} — already applied by agent tool.")
-            continue
 
         # Existing logic for files that still need applying...
         if boundary:
@@ -294,7 +289,7 @@ def _apply_patch(working_dir: Path, patch: str) -> bool | str:
     cleaned = patch.strip()
     if cleaned.startswith("```"):
         lines = cleaned.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
+        lines = [line for line in lines if not line.strip().startswith("```")]
         cleaned = "\n".join(lines)
 
     if not any(line.startswith(("---", "diff ", "@@")) for line in cleaned.split("\n")):

@@ -12,7 +12,6 @@ This prevents race conditions and stale index planning.
 from __future__ import annotations
 
 import concurrent.futures
-import subprocess
 from pathlib import Path
 from typing import Any
 

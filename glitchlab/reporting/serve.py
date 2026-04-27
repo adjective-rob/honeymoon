@@ -11,7 +11,6 @@ Usage:
 """
 
 import argparse
-import json
 import os
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -119,11 +118,11 @@ def main():
     DashboardHandler.dashboard_dir = dashboard_dir
 
     audit_file = repo_path / ".glitchlab" / "logs" / "audit.jsonl"
-    print(f"⚡ GLITCHLAB Attestation Dashboard")
+    print("⚡ GLITCHLAB Attestation Dashboard")
     print(f"   Repo:      {repo_path}")
     print(f"   Audit log: {audit_file} ({'found' if audit_file.exists() else 'not found'})")
     print(f"   Dashboard: http://localhost:{args.port}")
-    print(f"   Refresh the browser to reload latest audit data.\n")
+    print("   Refresh the browser to reload latest audit data.\n")
 
     server = HTTPServer(("0.0.0.0", args.port), DashboardHandler)
     try:

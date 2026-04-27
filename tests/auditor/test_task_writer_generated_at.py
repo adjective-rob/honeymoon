@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -13,7 +14,7 @@ from glitchlab.auditor.scanner import ScanResult
 class _FakeToolCall:
     def __init__(self, name: str, arguments: dict, tool_id: str = "tool-1"):
         self.id = tool_id
-        self.function = SimpleNamespace(name=name, arguments=yaml.safe_dump(arguments, default_flow_style=True))
+        self.function = SimpleNamespace(name=name, arguments=json.dumps(arguments))
 
 
 class _FakeResponse:

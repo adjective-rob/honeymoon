@@ -17,7 +17,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List
 
 from loguru import logger
 
@@ -145,7 +145,8 @@ def _harvest_metadata(file_path: Path, rel_path: str) -> tuple[List[str], List[s
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             for _ in range(500):
                 line = f.readline()
-                if not line: break
+                if not line:
+                    break
                 content.append(line)
         
         full_text = "".join(content)

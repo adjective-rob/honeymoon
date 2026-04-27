@@ -117,7 +117,7 @@ class PreludeContext:
         version = self.get_version()
         if version is None:
             raise PreludeVersionError(
-                f"Prelude CLI not found. Install with: npm install -g prelude-context"
+                "Prelude CLI not found. Install with: npm install -g prelude-context"
             )
         if self._version_tuple(version) < self._version_tuple(min_version):
             raise PreludeVersionError(

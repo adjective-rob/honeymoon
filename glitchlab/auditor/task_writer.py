@@ -370,7 +370,7 @@ Plan your work, read necessary files, write the tasks, and call `done`.
                 assist_msg["content"] = response.content
             if response.tool_calls:
                 assist_msg["tool_calls"] = [
-                    tc.model_dump() if hasattr(tc, "model_dump") else dict(tc)
+                    tc.model_dump() if hasattr(tc, "model_dump") else vars(tc)
                     for tc in response.tool_calls
                 ]
             messages.append(assist_msg)

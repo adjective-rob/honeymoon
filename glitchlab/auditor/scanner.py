@@ -14,11 +14,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
 
-try:
-    from tree_sitter_languages import get_language, get_parser
-    TREE_SITTER_AVAILABLE = True
-except ImportError:
-    TREE_SITTER_AVAILABLE = False
+import importlib.util
+
+TREE_SITTER_AVAILABLE = importlib.util.find_spec("tree_sitter_languages") is not None
 
 
 # ---------------------------------------------------------------------------

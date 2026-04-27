@@ -49,6 +49,7 @@ console = Console()
 
 
 def version_callback(value: bool):
+    """Print the CLI version for the global --version flag and exit immediately."""
     if value:
         console.print(f"{__codename__} v{__version__}")
         raise typer.Exit()
@@ -64,7 +65,7 @@ def main(
         help="Show the version and exit.",
     ),
 ):
-    pass
+    """Launch the Typer application as the CLI entry point."""
 
 
 # ---------------------------------------------------------------------------
@@ -94,7 +95,7 @@ def run(
     test_cmd: Optional[str] = typer.Option(None, "--test", "-t", help="Test command to run (e.g. 'cargo test')"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
 ):
-    """Run GLITCHLAB on a task."""
+    """Run the main CLI workflow that resolves a task and executes the agent pipeline."""
     _print_banner()
     _configure_logging(verbose)
 
@@ -131,7 +132,7 @@ def run(
         test_cmd = _detect_test_command(repo)
 
     # --- NEW: Initialize the Zephyr Audit Logger subscriber ---
-    audit_logger = AuditLogger(log_file=repo / ".glitchlab" / "logs" / "audit.jsonl")
+    AuditLogger(log_file=repo / ".glitchlab" / "logs" / "audit.jsonl")
 
     controller = Controller(
         repo_path=repo,
@@ -188,7 +189,7 @@ def interactive(
         test_cmd = _detect_test_command(repo)
 
     # --- NEW: Initialize the Zephyr Audit Logger subscriber ---
-    audit_logger = AuditLogger(log_file=repo / ".glitchlab" / "logs" / "audit.jsonl")
+    AuditLogger(log_file=repo / ".glitchlab" / "logs" / "audit.jsonl")
 
     controller = Controller(
         repo_path=repo,
@@ -226,20 +227,20 @@ def status(
     # Config
     if repo:
         config = load_config(repo.resolve())
-        console.print(f"\n[bold]Routing:[/]")
+        console.print("\n[bold]Routing:[/]")
         console.print(f"  Planner:     {config.routing.planner}")
         console.print(f"  Implementer: {config.routing.implementer}")
         console.print(f"  Debugger:    {config.routing.debugger}")
         console.print(f"  Security:    {config.routing.security}")
         console.print(f"  Release:     {config.routing.release}")
 
-        console.print(f"\n[bold]Limits:[/]")
+        console.print("\n[bold]Limits:[/]")
         console.print(f"  Max fix attempts: {config.limits.max_fix_attempts}")
         console.print(f"  Max tokens/task:  {config.limits.max_tokens_per_task:,}")
         console.print(f"  Max $/task:       ${config.limits.max_dollars_per_task}")
 
         if config.boundaries.protected_paths:
-            console.print(f"\n[bold]Protected paths:[/]")
+            console.print("\n[bold]Protected paths:[/]")
             for p in config.boundaries.protected_paths:
                 console.print(f"  🔒 {p}")
 
@@ -446,7 +447,7 @@ def batch(
         test_cmd = _detect_test_command(repo)
 
     # --- NEW: Initialize the Zephyr Audit Logger subscriber ---
-    audit_logger = AuditLogger(log_file=repo / ".glitchlab" / "logs" / "audit.jsonl")
+    AuditLogger(log_file=repo / ".glitchlab" / "logs" / "audit.jsonl")
 
     results = run_parallel(
         repo_path=repo,
@@ -787,7 +788,7 @@ def audit(
 
     # In scout mode, we let the LLM generate tasks even if static findings are empty
     if scout:
-        console.print(f"[bold cyan]SCOUT[/] [dim]Activating Scout Brain (Layer 3)...[/]")
+        console.print("[bold cyan]SCOUT[/] [dim]Activating Scout Brain (Layer 3)...[/]")
 
     result.findings = findings
     writer = TaskWriter(router, out_dir, dry_run=dry_run)
@@ -806,7 +807,7 @@ def audit(
             border_style="green",
         ))
 
-    console.print(f"\n[bold]Next steps:[/]")
+    console.print("\n[bold]Next steps:[/]")
     console.print(f"  1. Run batch:        [cyan]glitchlab batch --repo {repo_path} --tasks-dir {out_dir}[/]")
     console.print(f"  2. Monitor:          [cyan]glitchlab history --repo {repo_path} --stats[/]")
 
@@ -826,10 +827,12 @@ def doctor():
         role = step.agent_role
         in_reg = role in AGENT_REGISTRY
         in_hand = role in STEP_HANDLERS
-        if not in_reg or not in_hand: failed = True
+        if not in_reg or not in_hand:
+            failed = True
         table.add_row(role, '[green]✓[/green]' if in_reg else '[red]✗[/red]', '[green]✓[/green]' if in_hand else '[red]✗[/red]')
     console.print(table)
-    if failed: sys.exit(1)
+    if failed:
+        sys.exit(1)
 
 # ---------------------------------------------------------------------------
 # Helpers

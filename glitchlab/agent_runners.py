@@ -13,12 +13,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 from loguru import logger
 from rich.console import Console
 
-from glitchlab.agents import AgentContext, BaseAgent, AgentResult
+from glitchlab.agents import AgentContext, AgentResult
 from glitchlab.controller_utils import attest_controller_action
 from glitchlab.display import print_plan
 from glitchlab.doc_inserter import insert_doc_comments
@@ -27,7 +26,6 @@ from glitchlab.history import extract_patterns_from_messages
 from glitchlab.run_context import RunContext
 from glitchlab.symbols import SymbolIndex
 from glitchlab.task import Task
-from glitchlab.task_state import TaskState
 from glitchlab.workspace.tools import ToolViolationError
 
 console = Console()
