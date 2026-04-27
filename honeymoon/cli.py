@@ -357,9 +357,22 @@ risk: low
 - (areas where the auditor should NOT generate tasks right now)
 """)
 
+    # Generate Ed25519 signing keypair
+    from honeymoon.signing import HiveSigner, SIGNING_AVAILABLE
+    if SIGNING_AVAILABLE:
+        key_path = gl_dir / "keys" / "signing.key"
+        if not key_path.exists():
+            signer = HiveSigner.generate(repo)
+            console.print("[green]  🔑 Ed25519 keypair generated[/]")
+            console.print(f"     Public key: {signer.public_key_hex[:16]}...")
+        else:
+            console.print("[dim]  🔑 Ed25519 keypair already exists[/]")
+    else:
+        console.print("[dim]  🔑 Install PyNaCl for signed audit trails: pip install PyNaCl[/]")
+
     # Add to .gitignore
     gitignore = repo / ".gitignore"
-    ignore_entries = [".honeymoon/worktrees/", ".honeymoon/tasks/",".honeymoon/logs/"]
+    ignore_entries = [".honeymoon/worktrees/", ".honeymoon/tasks/", ".honeymoon/logs/", ".honeymoon/keys/"]
     if gitignore.exists():
         content = gitignore.read_text()
         additions = [e for e in ignore_entries if e not in content]
