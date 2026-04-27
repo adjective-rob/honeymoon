@@ -1,11 +1,11 @@
-from glitchlab.event_bus import EventBus, GlitchEvent
+from honeymoon.event_bus import EventBus, HiveEvent
 
 
 def test_event_bus_pub_sub():
     test_bus = EventBus()
-    received_events: list[GlitchEvent] = []
+    received_events: list[HiveEvent] = []
 
-    def dummy_subscriber(event: GlitchEvent):
+    def dummy_subscriber(event: HiveEvent):
         received_events.append(event)
 
     # Subscribe to the bus

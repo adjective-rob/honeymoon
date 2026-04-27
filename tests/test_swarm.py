@@ -1,6 +1,6 @@
 """Tests for the swarm runner — wave building and sub-task partitioning."""
 
-from glitchlab.swarm import SubTask, _build_waves, _subtask_to_dict
+from honeymoon.swarm import SubTask, _build_waves, _subtask_to_dict
 
 
 def test_no_subtasks_returns_empty():

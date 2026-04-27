@@ -1,4 +1,4 @@
-from glitchlab.identity import __version__
+from honeymoon.identity import __version__
 
 def test_version():
-    assert __version__ == "4.5.0"
+    assert __version__ == "5.0.0"

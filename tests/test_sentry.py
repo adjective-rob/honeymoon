@@ -2,8 +2,8 @@
 
 import time
 
-from glitchlab.event_bus import bus, GlitchEvent
-from glitchlab.sentry import Sentry, SentryConfig
+from honeymoon.event_bus import bus, HiveEvent
+from honeymoon.sentry import Sentry, SentryConfig
 
 
 def _emit(run_id: str, event_type: str, agent_id: str = "ant-0", payload: dict = None):

@@ -1,7 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from glitchlab.agents.implementer import ImplementerAgent
+from honeymoon.agents.implementer import ImplementerAgent
 
 
 class _ToolCall(dict):

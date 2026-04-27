@@ -1,8 +1,8 @@
-"""Tests for BoundaryEnforcer from glitchlab/governance/__init__.py."""
+"""Tests for BoundaryEnforcer from honeymoon/governance/__init__.py."""
 
 import pytest
 
-from glitchlab.governance import BoundaryEnforcer, BoundaryViolation
+from honeymoon.governance import BoundaryEnforcer, BoundaryViolation
 
 
 def test_check_no_protected_paths_returns_empty():
@@ -74,7 +74,7 @@ def test_prefix_matching_protects_nested_paths():
 
 def test_non_matching_paths_pass_cleanly():
     """Non-matching paths pass cleanly."""
-    enforcer = BoundaryEnforcer(protected_paths=["src/core", "glitchlab/controller.py"])
+    enforcer = BoundaryEnforcer(protected_paths=["src/core", "honeymoon/controller.py"])
     violations = enforcer.check(
         ["src/utils/helper.py", "tests/test_foo.py", "docs/readme.md"],
         allow_core=True,

@@ -3,15 +3,15 @@ from types import SimpleNamespace
 
 from typer.testing import CliRunner
 
-import glitchlab.cli as cli
-from glitchlab.config_loader import PipelineStep
+import honeymoon.cli as cli
+from honeymoon.config_loader import PipelineStep
 
 
 def test_run_cli_passes_surgical_and_controller_uses_surgical_profile(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / ".glitchlab" / "tasks" / "queue").mkdir(parents=True)
-    task_file = repo / ".glitchlab" / "tasks" / "queue" / "next.yaml"
+    (repo / ".honeymoon" / "tasks" / "queue").mkdir(parents=True)
+    task_file = repo / ".honeymoon" / "tasks" / "queue" / "next.yaml"
     task_file.write_text("id: t1\nobjective: test surgical mode\nrisk: low\n")
 
     base_pipeline = [PipelineStep(name="planner", agent_role="planner")]
@@ -60,7 +60,7 @@ def test_run_cli_passes_surgical_and_controller_uses_surgical_profile(monkeypatc
     assert result.exit_code == 0, result.output
     assert controller_inits and controller_inits[0]["surgical"] is True
 
-    import glitchlab.controller as controller_mod
+    import honeymoon.controller as controller_mod
 
     monkeypatch.setattr(controller_mod, "pre_task_git_fetch", lambda repo_path: None)
     monkeypatch.setattr(controller_mod, "check_repo_clean", lambda repo_path: None)

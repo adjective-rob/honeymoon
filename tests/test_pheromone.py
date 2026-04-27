@@ -1,13 +1,13 @@
-"""Tests for the pheromone trail — GLITCHLAB swarm awareness layer."""
+"""Tests for the pheromone trail — HONEYMOON swarm awareness layer."""
 
 import json
 from pathlib import Path
 
-from glitchlab.pheromone import PheromoneWriter, PheromoneReader, PheromoneTrail
+from honeymoon.pheromone import PheromoneWriter, PheromoneReader, PheromoneTrail
 
 
 def test_writer_creates_trail_file(tmp_path: Path):
-    trail_path = tmp_path / ".glitchlab" / "pheromones.jsonl"
+    trail_path = tmp_path / ".honeymoon" / "pheromones.jsonl"
     writer = PheromoneWriter(trail_path)
     writer.claim("ant-0", "run-1", "src/main.py")
     assert trail_path.exists()

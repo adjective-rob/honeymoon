@@ -1,7 +1,7 @@
 import inspect
 from pathlib import Path
-from glitchlab.workspace import Workspace
-from glitchlab.workspace.tools import ToolExecutor
+from honeymoon.workspace import Workspace
+from honeymoon.workspace.tools import ToolExecutor
 
 
 def test_init_return_type_hints():

@@ -1,4 +1,4 @@
-from glitchlab import cli
+from honeymoon import cli
 
 
 def test_public_cli_functions_have_descriptive_docstrings():

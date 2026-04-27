@@ -1,6 +1,6 @@
 from unittest.mock import patch, MagicMock
 from typer.testing import CliRunner
-from glitchlab.cli import app
+from honeymoon.cli import app
 
 runner = CliRunner()
 
@@ -30,7 +30,7 @@ FAKE_ENTRIES = [
 ]
 
 
-@patch("glitchlab.cli.TaskHistory")
+@patch("honeymoon.cli.TaskHistory")
 def test_compare_basic(mock_history_cls):
     mock_hist = MagicMock()
     mock_hist.get_all.return_value = FAKE_ENTRIES
@@ -45,7 +45,7 @@ def test_compare_basic(mock_history_cls):
     assert "Divergence summary" in result.output
 
 
-@patch("glitchlab.cli.TaskHistory")
+@patch("honeymoon.cli.TaskHistory")
 def test_compare_task_not_found(mock_history_cls):
     mock_hist = MagicMock()
     mock_hist.get_all.return_value = FAKE_ENTRIES
@@ -56,7 +56,7 @@ def test_compare_task_not_found(mock_history_cls):
     assert "not found" in result.output
 
 
-@patch("glitchlab.cli.TaskHistory")
+@patch("honeymoon.cli.TaskHistory")
 def test_compare_both_not_found(mock_history_cls):
     mock_hist = MagicMock()
     mock_hist.get_all.return_value = []

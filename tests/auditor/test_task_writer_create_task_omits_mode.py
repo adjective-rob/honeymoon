@@ -3,8 +3,8 @@ from types import SimpleNamespace
 
 import yaml
 
-from glitchlab.auditor.task_writer import TaskWriter
-from glitchlab.auditor.scanner import ScanResult
+from honeymoon.auditor.task_writer import TaskWriter
+from honeymoon.auditor.scanner import ScanResult
 
 
 class _FakeToolFunction:

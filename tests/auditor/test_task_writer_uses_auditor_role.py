@@ -1,10 +1,10 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from glitchlab.auditor.task_writer import TaskWriter
-from glitchlab.auditor.scanner import ScanResult
-from glitchlab.config_loader import load_config
-from glitchlab.router import Router
+from honeymoon.auditor.task_writer import TaskWriter
+from honeymoon.auditor.scanner import ScanResult
+from honeymoon.config_loader import load_config
+from honeymoon.router import Router
 
 
 def test_task_writer_routes_with_auditor_role_and_router_resolves_auditor_model(tmp_path: Path):

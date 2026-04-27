@@ -1,6 +1,6 @@
 """Tests for AgentResult model."""
 
-from glitchlab.agents import AgentResult
+from honeymoon.agents import AgentResult
 
 
 def test_from_raw_successful_planner_dict():

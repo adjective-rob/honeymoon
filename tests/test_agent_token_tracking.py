@@ -1,10 +1,10 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import json
-from glitchlab.agents.debugger import DebuggerAgent
-from glitchlab.agents.implementer import ImplementerAgent
-from glitchlab.agents import AgentContext
-from glitchlab.router import RouterResponse
+from honeymoon.agents.debugger import DebuggerAgent
+from honeymoon.agents.implementer import ImplementerAgent
+from honeymoon.agents import AgentContext
+from honeymoon.router import RouterResponse
 
 class MockToolCall:
     def __init__(self, name, arguments):
@@ -45,7 +45,7 @@ def mock_event_bus():
     bus = MagicMock()
     return bus
 
-@patch("glitchlab.agents.debugger.bus")
+@patch("honeymoon.agents.debugger.bus")
 def test_debugger_token_tracking(mock_global_bus, mock_router):
     """DebuggerAgent reports per-step and cumulative loop token usage."""
     agent = DebuggerAgent(router=mock_router)
@@ -73,7 +73,7 @@ def test_debugger_token_tracking(mock_global_bus, mock_router):
     assert loop_step_events[1].kwargs["payload"]["write_count"] == 0
     assert loop_step_events[1].kwargs["payload"]["reads_without_write"] == 1
 
-@patch("glitchlab.agents.implementer.bus")
+@patch("honeymoon.agents.implementer.bus")
 def test_implementer_token_tracking(mock_global_bus, mock_router):
     """ImplementerAgent reports per-step and cumulative loop token usage."""
     agent = ImplementerAgent(router=mock_router)

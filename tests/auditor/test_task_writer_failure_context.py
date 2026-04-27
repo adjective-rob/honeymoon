@@ -1,9 +1,9 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from glitchlab.auditor.task_writer import TaskWriter
-from glitchlab.auditor.scanner import ScanResult
-from glitchlab.history import TaskHistory
+from honeymoon.auditor.task_writer import TaskWriter
+from honeymoon.auditor.scanner import ScanResult
+from honeymoon.history import TaskHistory
 
 
 class _FakeToolCall:

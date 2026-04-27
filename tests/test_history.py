@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 import pytest
 
-from glitchlab.history import TaskHistory
+from honeymoon.history import TaskHistory
 
 def test_jsonl_append_only_logic(tmp_path: Path):
     history = TaskHistory(tmp_path)

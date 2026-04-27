@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from glitchlab.config_loader import GlitchLabConfig, PipelineStep, load_config
+from honeymoon.config_loader import HoneymoonConfig, PipelineStep, load_config
 
 
 EXPECTED_STEP_NAMES = [
@@ -112,15 +112,15 @@ class TestSkipIfConditions:
         assert steps["archivist"].skip_if == []
 
 
-class TestPipelineInGlitchLabConfig:
-    """Pipeline field integrates correctly with GlitchLabConfig."""
+class TestPipelineInHoneymoonConfig:
+    """Pipeline field integrates correctly with HoneymoonConfig."""
 
     def test_empty_pipeline_default(self):
-        config = GlitchLabConfig()
+        config = HoneymoonConfig()
         assert config.pipeline == []
 
     def test_config_with_pipeline_steps(self):
-        config = GlitchLabConfig(
+        config = HoneymoonConfig(
             pipeline=[
                 PipelineStep(name="step1", agent_role="role1"),
                 PipelineStep(name="step2", agent_role="role2", required=False),

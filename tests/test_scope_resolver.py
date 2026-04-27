@@ -1,6 +1,6 @@
-"""Tests for ScopeResolver from glitchlab/scope.py."""
+"""Tests for ScopeResolver from honeymoon/scope.py."""
 
-from glitchlab.scope import ScopeResolver
+from honeymoon.scope import ScopeResolver
 
 
 def test_resolve_for_files_reads_content(tmp_path):
@@ -33,14 +33,14 @@ def test_resolve_for_files_truncates_long_files(tmp_path):
 def test_resolve_for_files_include_deps_follows_python_imports(tmp_path):
     """resolve_for_files with include_deps=True follows Python imports."""
     # Create the module being imported
-    mod_dir = tmp_path / "glitchlab"
+    mod_dir = tmp_path / "honeymoon"
     mod_dir.mkdir()
     (mod_dir / "foo.py").write_text(
         "class Bar:\n    pass\n\ndef baz():\n    return 1\n"
     )
 
     # Create the file that imports it
-    (tmp_path / "main.py").write_text("from glitchlab.foo import Bar\n")
+    (tmp_path / "main.py").write_text("from honeymoon.foo import Bar\n")
 
     resolver = ScopeResolver(working_dir=tmp_path)
     result = resolver.resolve_for_files(["main.py"], include_deps=True)
@@ -56,11 +56,11 @@ def test_resolve_for_files_include_deps_follows_python_imports(tmp_path):
 
 def test_resolve_for_files_include_deps_false_skips_deps(tmp_path):
     """resolve_for_files with include_deps=False skips dependency resolution."""
-    mod_dir = tmp_path / "glitchlab"
+    mod_dir = tmp_path / "honeymoon"
     mod_dir.mkdir()
     (mod_dir / "foo.py").write_text("class Bar:\n    pass\n")
 
-    (tmp_path / "main.py").write_text("from glitchlab.foo import Bar\n")
+    (tmp_path / "main.py").write_text("from honeymoon.foo import Bar\n")
 
     resolver = ScopeResolver(working_dir=tmp_path)
     result = resolver.resolve_for_files(["main.py"], include_deps=False)
@@ -166,19 +166,19 @@ def test_extract_js_signatures(tmp_path):
 
 def test_resolve_python_imports_finds_local_modules(tmp_path):
     """_resolve_python_imports finds local module files."""
-    mod_dir = tmp_path / "glitchlab"
+    mod_dir = tmp_path / "honeymoon"
     mod_dir.mkdir()
     (mod_dir / "utils.py").write_text("def helper():\n    pass\n")
 
-    content = "from glitchlab.utils import helper\nimport os\n"
+    content = "from honeymoon.utils import helper\nimport os\n"
     source = tmp_path / "main.py"
     source.write_text(content)
 
     resolver = ScopeResolver(working_dir=tmp_path)
     deps = resolver._resolve_python_imports(content, source)
 
-    assert "glitchlab/utils.py" in deps
-    assert "def helper():" in deps["glitchlab/utils.py"]
+    assert "honeymoon/utils.py" in deps
+    assert "def helper():" in deps["honeymoon/utils.py"]
 
 
 def test_unreadable_file_returns_error_entry(tmp_path):

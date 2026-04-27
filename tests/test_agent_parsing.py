@@ -7,15 +7,15 @@ run() with agentic tool loops and have stub parse_response methods.
 
 import json
 
-from glitchlab.agents import AgentContext
-from glitchlab.agents.archivist import ArchivistAgent
-from glitchlab.agents.debugger import DebuggerAgent
-from glitchlab.agents.implementer import ImplementerAgent
-from glitchlab.agents.planner import PlannerAgent
-from glitchlab.agents.release import ReleaseAgent
-from glitchlab.agents.security import SecurityAgent
-from glitchlab.agents.testgen import TestGenAgent
-from glitchlab.router import RouterResponse
+from honeymoon.agents import AgentContext
+from honeymoon.agents.archivist import ArchivistAgent
+from honeymoon.agents.debugger import DebuggerAgent
+from honeymoon.agents.implementer import ImplementerAgent
+from honeymoon.agents.planner import PlannerAgent
+from honeymoon.agents.release import ReleaseAgent
+from honeymoon.agents.security import SecurityAgent
+from honeymoon.agents.testgen import TestGenAgent
+from honeymoon.router import RouterResponse
 
 
 # ---------------------------------------------------------------------------

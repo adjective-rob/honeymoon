@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 
-from glitchlab.history import TaskHistory
+from honeymoon.history import TaskHistory
 
 
 def test_failure_is_recorded_to_jsonl(tmp_path: Path):

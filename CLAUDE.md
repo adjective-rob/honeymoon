@@ -1,8 +1,8 @@
-# CLAUDE.md — GLITCHLAB v4.5.0
+# CLAUDE.md — HONEYMOON v5.0.0
 
 ## Identity
 
-GLITCHLAB is a local-first, repo-agnostic, multi-agent development engine. The Controller orchestrates a deterministic 7-agent pipeline. It never writes code. Agents are stateless between runs. State flows through Pydantic models (`TaskState`, `StepState`) and a mutable `PipelineState` bag.
+HONEYMOON is a local-first, repo-agnostic, multi-agent development engine. The Controller orchestrates a deterministic 7-agent pipeline. It never writes code. Agents are stateless between runs. State flows through Pydantic models (`TaskState`, `StepState`) and a mutable `PipelineState` bag.
 
 ## Critical Rules
 
@@ -11,7 +11,7 @@ GLITCHLAB is a local-first, repo-agnostic, multi-agent development engine. The C
 3. **No changing function signatures** on public API surfaces without explicit approval: `BaseAgent`, `AgentContext`, `AgentResult`, `Router`, `Workspace`, `ToolExecutor`, `EventBus`, `BoundaryEnforcer`, `SymbolIndex`, `TaskState`.
 4. **No rewriting files from scratch.** Use targeted edits. If you must rewrite, explain why first.
 5. **Run tests after every change:** `.venv/bin/python3 -m pytest tests/`
-6. **Run the linter after every change:** `python3 -m ruff check glitchlab/`
+6. **Run the linter after every change:** `python3 -m ruff check honeymoon/`
 7. **Do not modify `config.yaml` defaults** (routing, limits, allowed_tools, blocked_patterns) unless the task is specifically about configuration.
 
 ## Architecture
@@ -68,7 +68,7 @@ High-coupling files. Read downstream consumers before editing.
 
 ## Agents
 
-7 agents, all in `glitchlab/agents/`:
+7 agents, all in `honeymoon/agents/`:
 
 | Role | Class | Model tier | Key behavior |
 |---|---|---|---|
@@ -97,7 +97,7 @@ Models are configured in `config.yaml` under `routing:`. Current defaults:
 - **High tier:** `openai/gpt-5.4` (planner, implementer, debugger, testgen)
 - **Low tier:** `openai/gpt-5.4-mini` (auditor, security, release, archivist)
 
-Config merge order: built-in defaults → repo `.glitchlab/config.yaml` → profile override → env vars.
+Config merge order: built-in defaults → repo `.honeymoon/config.yaml` → profile override → env vars.
 
 ## Codebase Understanding Stack
 
@@ -111,7 +111,7 @@ Agents don't get raw files dumped on them. Context flows through layers:
 
 ## CLI Commands
 
-Entry point: `glitchlab` (via `cli.py` / Typer).
+Entry point: `honeymoon` (via `cli.py` / Typer).
 
 | Command | Purpose |
 |---|---|
@@ -119,7 +119,7 @@ Entry point: `glitchlab` (via `cli.py` / Typer).
 | `interactive` | Human-in-the-loop mode with approval gates |
 | `batch` | Parallel multi-task execution |
 | `status` | Show config, routing, API key availability |
-| `init` | Bootstrap `.glitchlab/` in a repo |
+| `init` | Bootstrap `.honeymoon/` in a repo |
 | `history` | View previous runs |
 | `audit` | Scan repo for actionable improvements (Ouroboros) |
 
@@ -131,7 +131,7 @@ Entry point: `glitchlab` (via `cli.py` / Typer).
 - **Rich** for CLI output. Console output goes through `rich.console.Console`.
 - **Tests** live in `tests/`. Pytest. 32 test files, 136 tests. No test files outside `tests/`.
 - **ADRs** live in `docs/adr/`.
-- **Imports:** Absolute only (`from glitchlab.*`). No relative imports.
+- **Imports:** Absolute only (`from honeymoon.*`). No relative imports.
 
 ## Testing
 

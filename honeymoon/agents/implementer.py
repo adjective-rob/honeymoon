@@ -1,0 +1,982 @@
+"""
+🏗️ The Builder — Implementer (v3.0 Tool-Loop Architecture)
+
+Operates in a read-execute-observe loop. Features a 'think' tool
+for multi-file coordination and complex reasoning.
+Constructs the comb, cell by cell.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+from pathlib import Path
+from typing import Any
+
+from loguru import logger
+
+from honeymoon.event_bus import bus
+
+from honeymoon.agents import AgentContext, BaseAgent
+from honeymoon.context_compressor import compress_stale_messages, hard_compact_messages
+from honeymoon.router import RouterResponse
+
+
+IMPLEMENTER_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "think",
+            "description": "Use this to plan your approach. You must map out your search strategy and list the files you suspect you need to modify before taking action.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search_strategy": {
+                        "type": "string", 
+                        "description": "How you will find the code you need (e.g., 'I will grep for X to find all downstream imports')."
+                    },
+                    "execution_plan": {
+                        "type": "string",
+                        "description": "Step-by-step plan of which files to read and write."
+                    }
+                },
+                "required": ["search_strategy", "execution_plan"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read a file's contents. For large files (500+ lines), returns head+tail only. Use start_line/end_line to read a specific range instead.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "start_line": {"type": "integer", "description": "First line to return (1-indexed, inclusive). Optional."},
+                    "end_line": {"type": "integer", "description": "Last line to return (1-indexed, inclusive). Optional."}
+                },
+                "required": ["path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write complete content to a file in the workspace (creates or overwrites).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"}
+                },
+                "required": ["path", "content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "replace_in_file",
+            "description": "Replace a specific exact string with a new string in an existing file. ALWAYS prefer this over write_file for existing files to avoid deleting code. The 'find' string MUST match the existing file content exactly.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "find": {"type": "string", "description": "The exact existing text to find. Must match whitespace and indentation perfectly."},
+                    "replace": {"type": "string", "description": "The new text to replace it with."}
+                },
+                "required": ["path", "find", "replace"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "rollback_file",
+            "description": "Undo your changes to a file, restoring it to the version before you modified it. Use this when a write_file broke something and you need to start that file over.",
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string"}},
+                "required": ["path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_check",
+            "description": "Run a shell command (like a linter, compiler, or tests) to validate your changes. e.g., 'cargo check' or 'python -m pytest'",
+            "parameters": {
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+                "required": ["command"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "done",
+            "description": "Signal that implementation is complete and you have fulfilled the plan.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "commit_message": {"type": "string", "description": "Conventional commit message"},
+                    "summary": {"type": "string", "description": "What you accomplished"}
+                },
+                "required": ["commit_message", "summary"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_grep",
+            "description": "Search the codebase for a pattern. Returns matching lines with file paths and line numbers. Use this to find function definitions, imports, or usages before using read_file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pattern": {"type": "string", "description": "The text pattern to search for"},
+                    "file_type": {"type": "string", "description": "Optional glob pattern, e.g., '*.py' or '*.rs'", "default": "*"}
+                },
+                "required": ["pattern"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "find_references",
+            "description": "Find all locations where a symbol is defined, called, or imported. More precise than search_grep — ignores matches in comments and strings. Use this for renaming, understanding callers, or checking impact of changes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string", "description": "The exact symbol name to find"},
+                    "language": {"type": "string", "description": "Optional language filter (e.g. 'python', 'rust')"}
+                },
+                "required": ["symbol"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_symbol_map",
+            "description": "Query the repository's structural map to find where specific classes, functions, or modules are located. Use this to avoid blind grepping.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The name of the symbol or file to look for (e.g., 'Workspace', 'controller.py')"}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "query_project_context",
+            "description": "Query the project's architectural decisions, constraints, and stack info.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {"type": "string", "description": "e.g., 'authentication', 'database'"},
+                    "scope": {"type": "string", "description": "Directory path to filter rules by"}
+                }
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "ask_colleague",
+            "description": "If you lack the expertise or need a specialized review (e.g., security, testing) before finishing, delegate a sub-task to a colleague.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "colleague": {
+                        "type": "string", 
+                        "enum": ["security", "debugger", "testgen", "archivist"],
+                        "description": "The specialized agent to call"
+                    },
+                    "request": {
+                        "type": "string",
+                        "description": "Exactly what you need them to do or figure out for you."
+                    }
+                },
+                "required": ["colleague", "request"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_function",
+            "description": "Get the complete body of a function or method by name. Returns the full implementation including signature. Use this instead of read_file when you only need one function from a large file to save context window.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {"type": "string", "description": "The function or method name"},
+                    "file": {"type": "string", "description": "Optional file path to restrict the search"}
+                },
+                "required": ["symbol"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_class",
+            "description": "Get a class outline showing the class signature and all method signatures with bodies collapsed. Use this to understand a class structure without reading the entire file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "class_name": {"type": "string", "description": "The class name to look up"},
+                    "file": {"type": "string", "description": "Optional file path to restrict the search"}
+                },
+                "required": ["class_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_imports",
+            "description": "Get just the import block from a file. Returns all import/from-import lines at the top of the file. Much cheaper than read_file when you only need to check dependencies.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path to the file"}
+                },
+                "required": ["path"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "diff_preview",
+            "description": "Preview what a replace_in_file would produce WITHOUT applying the change. Use this to verify your find string matches before committing an edit. Returns the matched context with the replacement applied, or an error if the find string doesn't match.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Path to the file"},
+                    "find": {"type": "string", "description": "The exact text to find"},
+                    "replace": {"type": "string", "description": "The text to replace it with"}
+                },
+                "required": ["path", "find", "replace"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "patch_function",
+            "description": "Replace an entire function or method with new source code. Uses AST to find the exact boundaries of the existing function, then replaces only those lines. You must provide the COMPLETE new function including the def/async def line, decorators, and body. This is safer than write_file (won't delete other code) and more reliable than replace_in_file (no exact string matching needed).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file": {"type": "string", "description": "Path to the file containing the function"},
+                    "function_name": {"type": "string", "description": "Name of the function or method to replace"},
+                    "new_source": {"type": "string", "description": "The complete new function source code, including def line and full body. Must be properly indented for its context (e.g. method inside a class needs class-level indentation)."}
+                },
+                "required": ["file", "function_name", "new_source"]
+            }
+        }
+    },
+]
+
+
+# ---------------------------------------------------------------------------
+# Maximum lines returned by read_file before truncation kicks in.
+# Files above this threshold return head + tail with a nudge toward
+# get_function. Keeps the message list lean without losing orientation.
+# ---------------------------------------------------------------------------
+_READ_FILE_TRUNCATE_THRESHOLD = 200
+_READ_FILE_HEAD_LINES = 30
+_READ_FILE_TAIL_LINES = 30
+
+
+class ImplementerAgent(BaseAgent):
+    role = "implementer"
+
+    system_prompt = """You are Patch, the surgical implementation engine.
+
+You now operate in an agentic loop. You have tools to think, read, write, check, and rollback.
+1. You MUST use the `think` tool to explain your step-by-step execution plan BEFORE you use the `write_file` tool for the first time.
+2. DO NOT guess type signatures. If you need to know how a module works, use `read_file` or `get_function`.
+3. For existing files, ALWAYS prefer `replace_in_file` to make surgical edits. Only use `write_file` if you are creating a brand new file or completely rewriting a very small one.
+4. If you are unsure if your code is right, use `run_check` to run the compiler, linter, or tests.
+5. When using write_file, you MUST output the ENTIRE file contents. NEVER use placeholders like 'rest of code here'. Doing so will delete the user's code.
+6. If you make a mistake and break a file, use the `rollback_file` tool to undo your changes and start over.
+7. Use `get_function` to read specific function bodies instead of `read_file` to save context space on large files.
+8. Use `find_references` to understand where a symbol is defined or called before changing its signature.
+9. When you are confident the plan is implemented, use the `done` tool.
+10. ALWAYS prefer replace_in_file over write_file for existing files. Use write_file ONLY for creating new files. Using write_file on an existing file risks dropping content.
+11. If the plan includes `do_not_touch` items, you MUST NOT modify those files or functions. They are explicitly out of scope.
+12. If the plan includes `code_hint`, use it as a starting point for your implementation. Verify the hint against actual code before applying — hints are approximate, not guaranteed correct.
+13. The initial file context shows signatures and structure, not full content. Use `get_function` to read specific functions, or use `read_file` with `start_line`/`end_line` to read a range of a large file. Avoid reading entire large files — it wastes context budget.
+14. NEVER read_file an entire file over 200 lines. Use get_function or read_file with start_line/end_line. Every full-file read costs ~5K tokens — you have a budget.
+15. You MUST attempt your first replace_in_file or write_file by step 8. Reading beyond step 8 without writing means you are stalling. Use what you have and start editing.
+16. Every code_hint for a 'modify' action MUST include the exact function name or line range where the change goes. Example: "In ImplementerAgent.run(), after the `response = self.router.complete()` call (around line 325), add: loop_tokens += response.tokens_used". The implementer will use get_function to read that exact function and apply the hint. Vague hints like "add token tracking to the loop" waste implementer steps.
+17. When the plan includes a code_hint referencing a specific function, your FIRST tool call after think should be get_function for that exact function. Do NOT read_file the entire file.
+18. After a successful run_check that shows tests passing, call done immediately. Do not read more files. The task is complete.
+19. For modifying existing functions, prefer `patch_function` over `replace_in_file`. It uses AST boundaries so you don't need exact string matching — just provide the function name and complete new source. Use `replace_in_file` only for changes outside function bodies (imports, constants, class-level attributes).
+20. EXCEPTION to rule 19: For docstring-only or comment-only changes, NEVER use `patch_function`. Use `replace_in_file` to insert the docstring immediately after the function signature line. `patch_function` requires rewriting the entire function body, which risks hallucinating a replacement. A docstring insertion is a 1-line `replace_in_file` operation. Example: replace `def run(self, task):` with `def run(self, task):\\n    \\"\\"\\"Execute the full pipeline for a task.\\"\\"\\"'`
+"""
+
+    def build_messages(self, context: AgentContext) -> list[dict[str, str]]:
+        state = context.previous_output
+        
+        steps_text = ""
+        for step in state.get("plan_steps", []):
+            steps_text += f"\nStep {step.get('step_number')}: {step.get('description')}\n"
+            hint = step.get("code_hint", "")
+            if hint:
+                steps_text += f"  Code hint: {hint}\n"
+            dnt = step.get("do_not_touch", [])
+            if dnt:
+                steps_text += f"  DO NOT TOUCH: {', '.join(dnt)}\n"
+
+        file_context = ""
+        if context.file_context:
+            file_context = "\n\nInitial file context (signatures only — use get_function for full content):\n"
+            for fname, content in context.file_context.items():
+                file_context += f"\n--- {fname} ---\n{content}\n"
+
+        # Prelude: inject compact project context if available
+        project_context = ""
+        prelude = context.extra.get("prelude")
+        if prelude and hasattr(prelude, 'compact') and callable(prelude.compact):
+            compact_result = prelude.compact(max_tokens=600)
+            if compact_result:
+                project_context = f"\n\nProject context:\n{compact_result}\n"
+
+        # Agent Guide: inject codebase knowledge if available
+        agent_guide = ""
+        guide_path = Path(context.repo_path) / "glitchlab" / "AGENT_GUIDE.md"
+        if guide_path.exists():
+            agent_guide = f"\n\nAgent Guide:\n{guide_path.read_text()[:3000]}\n"
+
+        user_content = f"""Task: {context.objective}
+Plan: {steps_text}
+{file_context}{agent_guide}{project_context}"""
+
+        # --- ADD HEURISTICS ---
+        heuristics = context.extra.get("learned_heuristics")
+        if heuristics:
+            user_content += f"\n\n{heuristics}"
+
+        user_content += "\n\nUse your tools to explore, implement, and verify this plan. When finished, call `done`."
+
+        return [self._system_msg(), self._user_msg(user_content)]  
+
+    def run(self, context: AgentContext, **kwargs) -> dict[str, Any]:
+        """Override run to implement the Agentic Loop with Cognitive Monologue."""
+        messages = self.build_messages(context)
+        
+        workspace_dir = Path(context.working_dir)
+        tool_executor = context.extra.get("tool_executor")
+        symbol_index = context.extra.get("symbol_index")
+        
+        modified_files = set()
+        created_files = set()
+        think_count = 0
+        write_count = 0
+        read_count = 0
+        # Scale read cap with plan scope — multi-file tasks need more reads
+        plan_files = context.extra.get("files_in_scope", [])
+        plan_step_count = len(context.previous_output.get("plan_steps", []))
+        read_cap = max(8, len(plan_files) * 2, plan_step_count * 3)
+        search_count = 0
+        check_after_write = False  # True once a write happens, reset when run_check passes
+        total_tokens = 0
+        fast_mode = context.extra.get("fast_mode", False)
+        max_steps = 30 if fast_mode else 60
+        
+        for step in range(max_steps):
+            logger.debug(f"[PATCH] Loop Step {step+1}/{max_steps}...")
+            
+            # 1. Proactive smart context compression
+            compress_stale_messages(messages)
+            hard_compact_messages(messages)
+
+            # Stall detection: soft nudge at 6, hard kill at 10
+            # Also hard kill if 8+ reads without a single write
+            if write_count == 0 and think_count > 0 and (step >= 6 or read_count >= read_cap):
+                if step >= 10 or read_count >= read_cap:
+                    # Hard circuit breaker — agent is stuck in a read loop
+                    logger.warning(
+                        f"[PATCH] Write-deadline breaker tripped at step {step + 1}. "
+                        f"0 writes after {think_count} thinks, {read_count} reads (cap={read_cap}), {search_count} searches."
+                    )
+                    bus.emit(
+                        event_type="agent.write_deadline_breaker",
+                        payload={
+                            "step": step + 1,
+                            "think_count": think_count,
+                            "read_count": read_count,
+                            "search_count": search_count,
+                            "write_count": 0,
+                        },
+                        agent_id=self.role,
+                    )
+                    return {
+                        "changes": [],
+                        "tests_added": [],
+                        "commit_message": "chore: no changes (write deadline exceeded)",
+                        "summary": f"Implementer read for {step + 1} steps ({read_count} reads) without writing. Circuit breaker tripped.",
+                        "parse_error": True,
+                        "_breaker": "write_deadline",
+                    }
+                else:
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            "WARNING: You have spent multiple steps reading without writing any code. "
+                            "You MUST use replace_in_file or patch_function NOW. "
+                            "Do NOT read more files. Use what you have and start editing."
+                        )
+                    })
+
+            # 2. Rolling window search spiral guard
+            # Look at the last 6 tool calls across all messages
+            recent_tools = [m.get("name") for m in messages if m.get("role") == "tool"][-6:]
+            search_count = recent_tools.count("search_grep")
+
+            # 3. Deterministic First Step: Force 'think' on step 0
+            step_kwargs = dict(kwargs)
+            if step == 0:
+                step_kwargs["tool_choice"] = {"type": "function", "function": {"name": "think"}}
+
+            response = self.router.complete(
+                role=self.role,
+                messages=messages,
+                tools=IMPLEMENTER_TOOLS,
+                **step_kwargs
+            )
+            
+            step_tokens = response.tokens_used
+            total_tokens += step_tokens
+            bus.emit(
+                event_type="agent.loop_step",
+                payload={
+                    "step": step,
+                    "step_tokens": step_tokens,
+                    "cumulative_tokens": total_tokens,
+                    "write_count": write_count,
+                    "reads_without_write": step - write_count,
+                },
+                agent_id=self.role
+            )
+
+            # Append assistant message
+            assist_msg = {"role": "assistant"}
+            if response.content:
+                assist_msg["content"] = response.content
+            if response.tool_calls:
+                # Format litellm tool_calls to dict for the chat history
+                assist_msg["tool_calls"] = [
+                    tc.model_dump() if hasattr(tc, 'model_dump') else dict(tc) 
+                    for tc in response.tool_calls
+                ]
+            messages.append(assist_msg)
+
+            if not response.tool_calls:
+                # If the LLM just talks without using tools, nudge it.
+                messages.append({"role": "user", "content": "Please use your tools to take action, or call `done` if you are finished."})
+                continue
+
+            for tool_call in response.tool_calls:
+                tc_id = tool_call.id
+                tc_name = tool_call.function.name
+                
+                try:
+                    tc_args = json.loads(tool_call.function.arguments)
+                except json.JSONDecodeError:
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": "Error: Invalid JSON in arguments."})
+                    continue
+
+                logger.info(f"[PATCH] 🛠️ Tool call: {tc_name}")
+                bus.emit(
+                    event_type="agent.tool_called",
+                    payload={
+                        "tool_name": tc_name,
+                        "tool_args_keys": list(tc_args.keys()),
+                    },
+                    agent_id=self.role,
+                )
+
+                if tc_name == "think":
+                    think_count += 1
+                    res = "Strategy noted. Proceed with your plan."
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "read_file":
+                    path = tc_args.get("path")
+                    start_line = tc_args.get("start_line")
+                    end_line = tc_args.get("end_line")
+                    try:
+                        content = (workspace_dir / path).read_text(encoding='utf-8')
+                        file_lines = content.splitlines()
+                        line_count = len(file_lines)
+
+                        if start_line or end_line:
+                            # Line-range mode: return exact slice with line numbers, no truncation
+                            s = max(0, (start_line or 1) - 1)
+                            e = min(line_count, end_line or line_count)
+                            numbered = [f"{i}: {line}" for i, line in enumerate(file_lines[s:e], start=s + 1)]
+                            res = f"Read {path} lines {s + 1}-{e} of {line_count}:\n\n" + "\n".join(numbered)
+                        elif line_count > _READ_FILE_TRUNCATE_THRESHOLD:
+                            head = "\n".join(file_lines[:_READ_FILE_HEAD_LINES])
+                            tail = "\n".join(file_lines[-_READ_FILE_TAIL_LINES:])
+                            res = (
+                                f"Read {path} ({line_count} lines, truncated to first {_READ_FILE_HEAD_LINES} + last {_READ_FILE_TAIL_LINES}):\n\n"
+                                f"{head}\n\n"
+                                f"... ({line_count - _READ_FILE_HEAD_LINES - _READ_FILE_TAIL_LINES} lines omitted. "
+                                f"Use read_file with start_line/end_line or get_function to see specific sections.) ...\n\n"
+                                f"{tail}"
+                            )
+                        else:
+                            res = f"Read {len(content)} characters from {path}:\n\n{content}"
+                    except Exception as e:
+                        res = f"Error reading file: {e}"
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+                    read_count += 1
+
+                elif tc_name == "search_grep":
+                    if search_count >= 3:
+                        res = "You have searched multiple times recently. Consider using `think` to consolidate your findings or `read_file` to look closer."
+                        messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+                        continue
+
+                    pattern = tc_args.get("pattern")
+                    file_type = tc_args.get("file_type", "*")
+                    try:
+                        # Direct subprocess call for read-only universal search
+                        cmd = [
+                            "grep", "-rn", 
+                            f"--include={file_type}",
+                            "--exclude-dir=.honeymoon", 
+                            "--exclude-dir=__pycache__",
+                            "--exclude-dir=node_modules",
+                            "--exclude-dir=.git",
+                            pattern, "."
+                        ]
+                        proc = subprocess.run(cmd, cwd=workspace_dir, capture_output=True, text=True, timeout=30)
+                        lines = proc.stdout.splitlines()
+                        if len(lines) > 50:
+                            res = "\n".join(lines[:50]) + "\n(truncated, refine your search)"
+                        else:
+                            res = proc.stdout if proc.stdout else "No matches found."
+                    except Exception as e:
+                        res = f"Search failed: {e}"
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "query_symbol_map":
+                    query = tc_args.get("query", "").lower()
+                    repo_index = context.extra.get("repo_index")
+                    if repo_index:
+                        results = []
+                        for path, entry in repo_index.files.items():
+                            if query in path.lower() or any(query in s.lower() for s in entry.symbols):
+                                symbol_match = [s for s in entry.symbols if query in s.lower()]
+                                results.append(f"- {path} (Symbols: {', '.join(symbol_match[:5])})")
+                        
+                        res = "\n".join(results[:20]) if results else "No matches found in the structural map."
+                    else:
+                        res = "Structural map (RepoIndex) is unavailable."
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "find_references":
+                    symbol = tc_args.get("symbol")
+                    language = tc_args.get("language")
+                    if symbol_index:
+                        refs = symbol_index.find_references(symbol, language)
+                        if not refs:
+                            res = f"No structural references found for '{symbol}'. Fall back to search_grep if needed."
+                        else:
+                            lines = [f"{r['file']}:{r['line']} [{r['kind']}] {r['context']}" for r in refs[:30]]
+                            res = f"Found {len(refs)} references for '{symbol}':\n" + "\n".join(lines)
+                            if len(refs) > 30:
+                                res += f"\n... (truncated {len(refs)-30} more)"
+                    else:
+                        res = "AST parser unavailable. Please fall back to search_grep."
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "get_function":
+                    symbol = tc_args.get("symbol")
+                    file_path = tc_args.get("file")
+                    if symbol_index:
+                        func_data = symbol_index.get_function_body(symbol, file_path)
+                        if func_data:
+                            res = f"Function '{symbol}' in {func_data['file']} (Lines {func_data['line_start']}-{func_data['line_end']}):\n\n{func_data['body']}"
+                        else:
+                            res = f"Function '{symbol}' not found. Check spelling or use search_grep."
+                    else:
+                        res = "AST parser unavailable. Please fall back to read_file."
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+                    read_count += 1
+
+                elif tc_name == "get_class":
+                    class_name = tc_args.get("class_name")
+                    file_path = tc_args.get("file")
+                    if symbol_index:
+                        class_data = symbol_index.get_class_outline(class_name, file_path)
+                        if class_data:
+                            res = f"Class '{class_name}' in {class_data['file']} (Lines {class_data['line_start']}-{class_data['line_end']}):\n\n{class_data['outline']}"
+                        else:
+                            res = f"Class '{class_name}' not found. Check spelling or use search_grep."
+                    else:
+                        res = "AST parser unavailable. Please fall back to read_file."
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "get_imports":
+                    path = tc_args.get("path")
+                    try:
+                        content = (workspace_dir / path).read_text(encoding='utf-8')
+                        file_lines = content.splitlines()
+                        import_lines = []
+                        for line in file_lines:
+                            stripped = line.strip()
+                            # Collect imports, blanks between imports, docstrings/comments before imports
+                            if stripped.startswith(('import ', 'from ', '#', '"""', "'''", '"""')) or stripped == '':
+                                import_lines.append(line)
+                            elif stripped.startswith('__') and '=' in stripped:
+                                # Module-level dunders like __all__, __version__
+                                import_lines.append(line)
+                            elif import_lines and not stripped:
+                                # Blank line after imports — stop
+                                break
+                            else:
+                                break
+                        if import_lines:
+                            res = f"Imports from {path}:\n\n" + "\n".join(import_lines)
+                        else:
+                            res = f"No imports found in {path}."
+                    except Exception as e:
+                        res = f"Error reading file: {e}"
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "diff_preview":
+                    path = tc_args.get("path")
+                    find_str = tc_args.get("find", "")
+                    replace_str = tc_args.get("replace", "")
+                    try:
+                        fpath = workspace_dir / path
+                        if not fpath.exists():
+                            res = f"Error: {path} does not exist."
+                        else:
+                            content = fpath.read_text(encoding='utf-8')
+                            if find_str not in content:
+                                # Show nearby content to help the agent fix the find string
+                                lines = content.splitlines()
+                                # Try to find a partial match
+                                first_line = find_str.strip().splitlines()[0] if find_str.strip() else ""
+                                nearby = []
+                                for i, line in enumerate(lines):
+                                    if first_line and first_line.strip() in line:
+                                        start = max(0, i - 2)
+                                        end = min(len(lines), i + 3)
+                                        nearby = [f"{n+1}: {lines[n]}" for n in range(start, end)]
+                                        break
+                                if nearby:
+                                    res = f"NO MATCH. The find string was not found in {path}.\n\nNearest partial match:\n" + "\n".join(nearby)
+                                else:
+                                    res = f"NO MATCH. The find string was not found anywhere in {path}. Use read_file to check the exact content."
+                            else:
+                                count = content.count(find_str)
+                                # Show before/after context
+                                idx = content.index(find_str)
+                                before_start = max(0, content.rfind('\n', 0, max(0, idx - 100)) + 1)
+                                after_end = min(len(content), content.find('\n', idx + len(find_str) + 100))
+                                if after_end == -1:
+                                    after_end = len(content)
+
+                                before_context = content[before_start:idx + len(find_str) + 50]
+                                after_context = content[before_start:idx] + replace_str + content[idx + len(find_str):after_end]
+
+                                res = (
+                                    f"MATCH FOUND ({count} occurrence(s) in {path}). Preview of first match:\n\n"
+                                    f"--- BEFORE ---\n{before_context}\n\n"
+                                    f"--- AFTER ---\n{after_context}\n\n"
+                                    f"Use replace_in_file to apply this change."
+                                )
+                    except Exception as e:
+                        res = f"Error: {e}"
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "patch_function":
+                    if think_count == 0:
+                        res = "Access Denied: You must use the `think` tool to explain your modifications before calling `patch_function`."
+                        messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+                        continue
+
+                    # Guard: reject patch_function for docstring-only tasks
+                    objective_lower = context.objective.lower()
+                    is_docstring_task = any(
+                        phrase in objective_lower
+                        for phrase in [
+                            "add docstring", "add a docstring", "docstrings",
+                            "add comment", "add type hint", "add typing",
+                            "missing_doc", "missing doc",
+                        ]
+                    )
+                    if is_docstring_task:
+                        res = (
+                            "REJECTED: Do not use patch_function for docstring-only tasks. "
+                            "It requires rewriting the entire function body, which risks "
+                            "hallucinating a replacement. Instead, use replace_in_file to "
+                            "insert the docstring after the function signature. "
+                            "Example: find 'def my_func(args):' and replace with "
+                            "'def my_func(args):\\n    \"\"\"Description of what this function does.\"\"\"'"
+                        )
+                        messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+                        continue
+
+                    file_path = tc_args.get("file")
+                    func_name = tc_args.get("function_name")
+                    new_source = tc_args.get("new_source")
+
+                    if not file_path or not func_name or not new_source:
+                        res = "Error: file, function_name, and new_source are all required."
+                        messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+                        continue
+
+                    try:
+                        fpath = workspace_dir / file_path
+                        if not fpath.exists():
+                            res = f"Error: {file_path} does not exist."
+                        elif not symbol_index:
+                            res = "Error: AST parser unavailable. Use replace_in_file instead."
+                        else:
+                            # Find the function boundaries via AST
+                            func_data = symbol_index.get_function_body(func_name, file_path)
+                            if not func_data:
+                                res = f"Error: Function '{func_name}' not found in {file_path}. Check the name or use search_grep to find it."
+                            else:
+                                content = fpath.read_text(encoding='utf-8')
+                                file_lines = content.splitlines()
+                                start = func_data['line_start'] - 1  # 0-indexed
+                                end = func_data['line_end']           # exclusive
+
+                                # Check for decorators above the function — include them in the replacement range
+                                # Walk backward from start to find @decorator lines
+                                decorator_start = start
+                                while decorator_start > 0:
+                                    prev_line = file_lines[decorator_start - 1].strip()
+                                    if prev_line.startswith('@'):
+                                        decorator_start -= 1
+                                    else:
+                                        break
+
+                                # Replace the line range
+                                new_lines = new_source.splitlines()
+                                patched_lines = file_lines[:decorator_start] + new_lines + file_lines[end:]
+                                patched_content = "\n".join(patched_lines)
+
+                                # Preserve trailing newline if original had one
+                                if content.endswith("\n"):
+                                    patched_content += "\n"
+
+                                fpath.write_text(patched_content, encoding='utf-8')
+                                modified_files.add(file_path)
+                                write_count += 1
+                                check_after_write = True
+
+                                if symbol_index:
+                                    symbol_index.invalidate(file_path)
+
+                                old_line_count = end - decorator_start
+                                new_line_count = len(new_lines)
+                                res = (
+                                    f"Success: Replaced '{func_name}' in {file_path} "
+                                    f"(lines {decorator_start + 1}-{end}, {old_line_count} lines → {new_line_count} lines)."
+                                )
+                    except Exception as e:
+                        res = f"Error patching function: {e}"
+
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "ask_colleague":
+                    return {
+                        "_status": "delegating",
+                        "colleague": tc_args.get("colleague"),
+                        "request": tc_args.get("request"),
+                        "_messages": messages,
+                        "tc_id": tc_id,
+                        "tc_name": tc_name
+                    }
+
+                elif tc_name == "query_project_context":
+                    topic = tc_args.get("topic", "")
+                    scope = tc_args.get("scope", "")
+                    prelude = context.extra.get("prelude")
+                    if prelude:
+                        res = prelude.query(topic=topic, scope=scope)
+                    else:
+                        res = "Error: Prelude context not wired up."
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "write_file":
+                    if think_count == 0:
+                        res = "Access Denied: You must use the `think` tool to explain your modifications before calling `write_file`."
+                        messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+                        continue
+
+                    path = tc_args.get("path")
+                    content = tc_args.get("content")
+                    try:
+                        fpath = workspace_dir / path
+                        is_new = not fpath.exists()
+                        fpath.parent.mkdir(parents=True, exist_ok=True)
+                        fpath.write_text(content, encoding='utf-8')
+                        
+                        if is_new:
+                            created_files.add(path)
+                        else:
+                            modified_files.add(path)
+                        write_count += 1
+                        check_after_write = True
+
+                        if symbol_index:
+                            symbol_index.invalidate(path)
+
+                        res = f"Successfully wrote {len(content)} characters to {path}."
+                    except Exception as e:
+                        res = f"Error writing file: {e}"
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "replace_in_file":
+                    if think_count == 0:
+                        res = "Access Denied: You must use the `think` tool to state your hypothesis before modifying code."
+                        messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+                        continue
+                        
+                    path = tc_args.get("path")
+                    find_str = tc_args.get("find", "")
+                    replace_str = tc_args.get("replace", "")
+                    
+                    try:
+                        fpath = workspace_dir / path
+                        if not fpath.exists():
+                            res = f"Error: {path} does not exist."
+                        else:
+                            content = fpath.read_text(encoding='utf-8')
+                            if find_str not in content:
+                                res = "Error: The exact 'find' string was not found. You must match spaces and indentation exactly. Use read_file to check the exact text."
+                            else:
+                                count = content.count(find_str)
+                                new_content = content.replace(find_str, replace_str)
+                                fpath.write_text(new_content, encoding='utf-8')
+                                modified_files.add(path)
+                                write_count += 1
+                                check_after_write = True
+
+                                if symbol_index:
+                                    symbol_index.invalidate(path)
+
+                                res = f"Success: Replaced {count} occurrence(s) in {path}."
+                    except Exception as e:
+                        res = f"Error replacing in file: {e}"
+                        
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "rollback_file":
+                    path = tc_args.get("path")
+                    try:
+                        fpath = workspace_dir / path
+                        if path in created_files:
+                            if fpath.exists():
+                                fpath.unlink()
+                            created_files.discard(path)
+                            res = f"Rolled back {path} (deleted newly created file)."
+                        elif path in modified_files:
+                            subprocess.run(
+                                ["git", "checkout", "--", path],
+                                cwd=workspace_dir,
+                                capture_output=True,
+                                text=True,
+                                check=True
+                            )
+                            modified_files.discard(path)
+                            res = f"Rolled back {path} to original version."
+                        else:
+                            res = f"Error: {path} has not been modified or created by you."
+                    except Exception as e:
+                        res = f"Error rolling back file: {e}"
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "run_check":
+                    cmd = tc_args.get("command")
+                    if tool_executor:
+                        try:
+                            # Use the sandboxed executor, passing IDs for Zephyr attestation
+                            tool_res = tool_executor.execute(
+                                command=cmd,
+                                run_id=context.run_id,
+                                agent_id=self.role
+                            )
+                            res = f"Exit code: {tool_res.returncode}\nSTDOUT:\n{tool_res.stdout}\nSTDERR:\n{tool_res.stderr}"
+                            if tool_res.returncode != 0:
+                                res += "\n\nTip: use `rollback_file` if you need to undo a broken change."
+                            else:
+                                check_after_write = False
+                                res += " Verification passed. If your changes are complete, call done now."
+                        except Exception as e:
+                            res = f"Execution blocked or failed: {e}"
+                    else:
+                        res = "Error: Tool executor not wired up."
+                    messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "done":
+                    if check_after_write:
+                        res = (
+                            "You have made changes but have not run any verification. "
+                            "Use run_check to verify your changes before calling done. "
+                            "Example: run_check with command 'python -m pytest tests/ -x -q' "
+                            "or 'python -m ruff check <file>'."
+                        )
+                        messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+                        continue
+
+                    # Exit the loop!
+                    bus.emit(
+                        event_type="agent.done",
+                        payload={
+                            "tool_name": "done",
+                            "loop_steps": step + 1,
+                        },
+                        agent_id=self.role,
+                    )
+                    return {
+                        "changes": [
+                            {"file": f, "action": "modify", "_already_applied": True} for f in modified_files
+                        ] + [
+                            {"file": f, "action": "create", "_already_applied": True} for f in created_files
+                        ],
+                        "tests_added": [],
+                        "commit_message": tc_args.get("commit_message", "chore: automated implementation"),
+                        "summary": tc_args.get("summary", "Done."),
+                        "_agent": "implementer",
+                        "_model": response.model,
+                        "_tokens": response.tokens_used,
+                        "_loop_tokens": total_tokens,
+                        "_cost": response.cost,
+                        "_messages": messages,
+                    }
+
+        # If it hits max steps without calling 'done'
+        logger.warning("[PATCH] Loop exhausted without calling `done`.")
+        return {
+            "changes": [],
+            "tests_added": [],
+            "commit_message": "chore: partial implementation",
+            "summary": "Implementer hit max step limit.",
+            "parse_error": True,
+        }
+
+    def parse_response(self, response: RouterResponse, context: AgentContext) -> dict[str, Any]:
+        pass # Unused because we overrode run()

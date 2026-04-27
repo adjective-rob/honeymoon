@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from glitchlab.pheromone import PheromoneTrail
-from glitchlab.symbols import SymbolIndex
+from honeymoon.pheromone import PheromoneTrail
+from honeymoon.symbols import SymbolIndex
 
 
 def test_check_lock_without_pheromone_returns_none(tmp_path: Path):

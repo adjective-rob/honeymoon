@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch, call
 
-from glitchlab.agents import AgentContext
-from glitchlab.agents.planner import PlannerAgent, PLANNER_TOOLS
-from glitchlab.router import RouterResponse
+from honeymoon.agents import AgentContext
+from honeymoon.agents.planner import PlannerAgent, PLANNER_TOOLS
+from honeymoon.router import RouterResponse
 
 
 # ---------------------------------------------------------------------------

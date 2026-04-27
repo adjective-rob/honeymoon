@@ -2,7 +2,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import subprocess
 
-from glitchlab import controller_utils
+from honeymoon import controller_utils
 
 
 def test_public_helpers_behavior_and_attestation_guard(monkeypatch, tmp_path):

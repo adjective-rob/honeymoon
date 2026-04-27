@@ -1,8 +1,8 @@
-"""Tests for TaskState from glitchlab/controller.py."""
+"""Tests for TaskState from honeymoon/controller.py."""
 
 import json
 
-from glitchlab.controller import TaskState, StepState
+from honeymoon.controller import TaskState, StepState
 
 
 def _make_task_state(**overrides) -> TaskState:
@@ -148,11 +148,11 @@ def test_mark_phase_no_duplicates():
 
 
 def test_persist_writes_json(tmp_path):
-    """persist writes task_state.json to the workspace .glitchlab directory."""
+    """persist writes task_state.json to the workspace .honeymoon directory."""
     state = _make_task_state()
     state.persist(tmp_path)
 
-    state_file = tmp_path / ".glitchlab" / "task_state.json"
+    state_file = tmp_path / ".honeymoon" / "task_state.json"
     assert state_file.exists()
 
     data = json.loads(state_file.read_text())

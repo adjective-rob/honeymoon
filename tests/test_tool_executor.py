@@ -1,8 +1,8 @@
-"""Tests for ToolExecutor from glitchlab/workspace/tools.py."""
+"""Tests for ToolExecutor from honeymoon/workspace/tools.py."""
 
 import pytest
 
-from glitchlab.workspace.tools import ToolExecutor, ToolViolationError
+from honeymoon.workspace.tools import ToolExecutor, ToolViolationError
 
 
 @pytest.fixture

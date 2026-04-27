@@ -1,9 +1,9 @@
-"""Tests for apply_changes from glitchlab/controller.py."""
+"""Tests for apply_changes from honeymoon/controller.py."""
 
 import pytest
 
-from glitchlab.task import apply_changes, _normalize_change
-from glitchlab.governance import BoundaryEnforcer, BoundaryViolation
+from honeymoon.task import apply_changes, _normalize_change
+from honeymoon.governance import BoundaryEnforcer, BoundaryViolation
 
 
 def test_surgical_blocks_all_match(tmp_path):
@@ -138,11 +138,11 @@ def test_file_deletion_removes_file(tmp_path):
 
 def test_boundary_violation_raises_when_allow_core_false(tmp_path):
     """Boundary violation raises BoundaryViolation when allow_core=False."""
-    boundary = BoundaryEnforcer(protected_paths=["glitchlab/controller.py"])
+    boundary = BoundaryEnforcer(protected_paths=["honeymoon/controller.py"])
 
     changes = [
         {
-            "file": "glitchlab/controller.py",
+            "file": "honeymoon/controller.py",
             "action": "modify",
             "content": "hacked\n",
         }

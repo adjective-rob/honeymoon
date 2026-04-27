@@ -3,9 +3,9 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "glitchlab"
-version = "4.5.0"
-description = "GLITCHLAB — The Agentic Dev Engine. Build Weird. Ship Clean."
+name = "honeymoon"
+version = "5.0.0"
+description = "HONEYMOON — The Hive Mind Dev Engine."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"
@@ -38,11 +38,11 @@ ast = [
 ]
 
 [project.scripts]
-glitchlab = "glitchlab.cli:app"
+honeymoon = "honeymoon.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["glitchlab*"]
+include = ["honeymoon*"]
 
 [tool.ruff]
 target-version = "py311"

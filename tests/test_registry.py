@@ -1,4 +1,4 @@
-"""Tests for the agent registry (glitchlab.registry)."""
+"""Tests for the agent registry (honeymoon.registry)."""
 
 from __future__ import annotations
 
@@ -6,14 +6,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from glitchlab.agents.archivist import ArchivistAgent
-from glitchlab.agents.debugger import DebuggerAgent
-from glitchlab.agents.implementer import ImplementerAgent
-from glitchlab.agents.planner import PlannerAgent
-from glitchlab.agents.release import ReleaseAgent
-from glitchlab.agents.security import SecurityAgent
-from glitchlab.agents.testgen import TestGenAgent
-from glitchlab.registry import AGENT_REGISTRY, get_agent
+from honeymoon.agents.archivist import ArchivistAgent
+from honeymoon.agents.debugger import DebuggerAgent
+from honeymoon.agents.implementer import ImplementerAgent
+from honeymoon.agents.planner import PlannerAgent
+from honeymoon.agents.release import ReleaseAgent
+from honeymoon.agents.security import SecurityAgent
+from honeymoon.agents.testgen import TestGenAgent
+from honeymoon.registry import AGENT_REGISTRY, get_agent
 
 
 EXPECTED_ROLES: dict[str, type] = {

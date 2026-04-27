@@ -1,13 +1,13 @@
-import glitchlab.display
-import glitchlab.controller_utils
-import glitchlab.doc_inserter
+import honeymoon.display
+import honeymoon.controller_utils
+import honeymoon.doc_inserter
 
 
 def test_module_docstrings_exist_and_contain_required_info():
     modules = [
-        glitchlab.display,
-        glitchlab.controller_utils,
-        glitchlab.doc_inserter
+        honeymoon.display,
+        honeymoon.controller_utils,
+        honeymoon.doc_inserter
     ]
     
     for mod in modules:

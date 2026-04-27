@@ -1,6 +1,6 @@
 """Tests for the TaskDecomposer — step partitioning and overlap detection."""
 
-from glitchlab.decomposer import TaskDecomposer
+from honeymoon.decomposer import TaskDecomposer
 
 
 def test_partition_independent_steps():

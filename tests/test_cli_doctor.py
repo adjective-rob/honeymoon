@@ -1,13 +1,13 @@
 from unittest.mock import patch, MagicMock
 from typer.testing import CliRunner
-from glitchlab.cli import app
+from honeymoon.cli import app
 
 runner = CliRunner()
 
 
-@patch("glitchlab.config_loader.load_config")
-@patch("glitchlab.registry.AGENT_REGISTRY", {"planner": MagicMock(), "implementer": MagicMock()})
-@patch("glitchlab.step_handlers.STEP_HANDLERS", {"planner": MagicMock(), "implementer": MagicMock()})
+@patch("honeymoon.config_loader.load_config")
+@patch("honeymoon.registry.AGENT_REGISTRY", {"planner": MagicMock(), "implementer": MagicMock()})
+@patch("honeymoon.step_handlers.STEP_HANDLERS", {"planner": MagicMock(), "implementer": MagicMock()})
 def test_doctor_command_succeeds_when_all_present(mock_load_config):
     mock_config = MagicMock()
     step1 = MagicMock(); step1.agent_role = "planner"
@@ -22,9 +22,9 @@ def test_doctor_command_succeeds_when_all_present(mock_load_config):
     assert "implementer" in result.output
 
 
-@patch("glitchlab.config_loader.load_config")
-@patch("glitchlab.registry.AGENT_REGISTRY", {"planner": MagicMock(), "implementer": MagicMock()})
-@patch("glitchlab.step_handlers.STEP_HANDLERS", {"planner": MagicMock()})
+@patch("honeymoon.config_loader.load_config")
+@patch("honeymoon.registry.AGENT_REGISTRY", {"planner": MagicMock(), "implementer": MagicMock()})
+@patch("honeymoon.step_handlers.STEP_HANDLERS", {"planner": MagicMock()})
 def test_doctor_command_fails_when_missing_handler(mock_load_config):
     mock_config = MagicMock()
     step1 = MagicMock(); step1.agent_role = "planner"
