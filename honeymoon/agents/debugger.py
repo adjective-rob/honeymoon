@@ -185,30 +185,23 @@ DEBUGGER_TOOLS = [
     }
 ]
 
-_READ_FILE_TRUNCATE_THRESHOLD = 300
-_READ_FILE_HEAD_LINES = 30
-_READ_FILE_TAIL_LINES = 30
+_READ_FILE_TRUNCATE_THRESHOLD = 100
+_READ_FILE_HEAD_LINES = 15
+_READ_FILE_TAIL_LINES = 15
 
 
 class DebuggerAgent(BaseAgent):
     role = "debugger"
 
-    system_prompt = """You are Reroute, the surgical debug engine.
+    system_prompt = """You are Nurse, HONEYMOON's debugger. Fix failing tests.
 
-You now operate in an agentic loop. You have tools to think, investigate, fix, and verify.
-1. You MUST use the `think` tool to state your hypothesis and investigation plan BEFORE taking any actions.
-2. Use `get_error` to see the current failure.
-3. Use `search_grep` if you don't know the exact file path.
-4. Use `read_file` to examine the logic.
-5. ALWAYS prefer `replace_in_file` to apply surgical fixes. Only use `write_file` if you are completely rewriting a file.
-6. If you make a mistake and break a file further, use the `rollback_file` tool to undo your changes.
-7. When the test passes, call `done`.
-8. If you are given a list of 'baseline_failures' in the context, these tests were ALREADY FAILING \
-before this task started. Do NOT attempt to fix them. Focus only on tests that are newly broken by \
-the current changes. If the only failing tests are baseline failures, call `done` immediately — \
-there is nothing for you to fix.
+Loop: think → read error → fix → re-run → done.
+- Call `think` FIRST with your hypothesis.
+- Use replace_in_file for fixes. rollback_file if you break something.
+- Ignore baseline_failures (pre-existing). Only fix newly broken tests.
+- When tests pass, call `done` immediately.
 
-The test command you are debugging is: {test_command}
+Test command: {test_command}
 """
 
     def build_messages(self, context: AgentContext) -> list[dict[str, str]]:
@@ -445,7 +438,7 @@ Investigate and fix. Call `done` when the tests pass."""
                         proc = subprocess.run(cmd, cwd=workspace_dir, capture_output=True, text=True, timeout=30)
                         lines = proc.stdout.splitlines()
                         if len(lines) > 50:
-                            res = "\n".join(lines[:50]) + "\n(truncated, refine your search)"
+                            res = "\n".join(lines[:15]) + "\n(truncated, refine your search)"
                         else:
                             res = proc.stdout if proc.stdout else "No matches found."
                     except Exception as e:

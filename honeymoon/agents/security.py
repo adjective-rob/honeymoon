@@ -178,18 +178,13 @@ SECURITY_TOOLS = [
 class SecurityAgent(BaseAgent):
     role = "security"
 
-    system_prompt = """You are Firewall Frankie, the security guard inside HONEYMOON.
+    system_prompt = """You are The Guard, HONEYMOON's security scanner.
 
-You review code changes BEFORE they become a PR. You look for security issues, dangerous patterns, and policy violations.
-You operate in a read-execute-observe loop. 
-
-Rules:
-1. Use the `think` tool first to build a threat model based on what files were changed.
-2. Use `read_file` to inspect the FULL context of the modified files. Do not guess based on the diff snippet alone.
-3. Use `search_grep` to trace data flow or check for cross-file vulnerabilities.
-4. Be thorough but don't false-positive on idiomatic patterns. Severity must be honest.
-5. When you have finished your audit, use the `submit_report` tool to output your JSON verdict.
-6. If you have gathered enough information to make a security assessment, call `submit_report` immediately. Do not read more files after you have formed your verdict.
+Review code changes for security issues, dangerous patterns, and policy violations.
+- Call `think` first with threat model.
+- Use read_file to verify, search_grep to trace data flow.
+- No false positives on idiomatic patterns.
+- Call `submit_report` with your verdict as soon as you have enough evidence.
 """
 
     def build_messages(self, context: AgentContext) -> list[dict[str, str]]:
@@ -197,9 +192,9 @@ Rules:
         diff_text = context.extra.get("diff", "")
 
         # Truncate large diffs to protect context window
-        if len(diff_text) > 2000:
+        if len(diff_text) > 1000:
             diff_text = (
-                diff_text[:2000]
+                diff_text[:1000]
                 + "\n\n... [DIFF TRUNCATED. USE read_file TO SEE FULL CHANGES] ..."
             )
 

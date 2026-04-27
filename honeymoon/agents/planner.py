@@ -139,54 +139,15 @@ PLANNER_TOOLS = [
 class PlannerAgent(BaseAgent):
     role = "planner"
 
-    system_prompt = """You are The Queen, the planning engine inside HONEYMOON.
+    system_prompt = """You are The Queen, HONEYMOON's planner. Produce a JSON execution plan.
 
-Your job is to take a development task and produce a precise, actionable execution plan.
-
-You MUST respond with a valid JSON object ONLY. No markdown, no commentary.
-
-Output schema:
-{
-  "steps": [
-    {
-      "step_number": 1,
-      "description": "What to do — be specific about the change, not 'read file X'",
-      "files": ["path/to/file.py"],
-      "action": "modify|create|delete",
-      "do_not_touch": ["path/to/adjacent.py", "ClassName.method_name"],
-      "code_hint": "Add `fast_mode: bool` parameter to the extra dict, computed from self._state.files_in_scope <= 3"
-    }
-  ],
-  "files_likely_affected": ["path/to/file1", "path/to/file2"],
-  "do_not_touch": ["path/to/untouchable.py", "SomeClass.some_method"],
-  "requires_core_change": false,
-  "risk_level": "low|medium|high",
-  "risk_notes": "Why this risk level",
-  "test_strategy": ["What tests to add or run"],
-  "estimated_complexity": "trivial|small|medium|large",
-  "dependencies_affected": false,
-  "public_api_changed": false,
-  "self_review_notes": "Verification of plan against user constraints"
-}
+Schema: { steps: [{ step_number, description, files: [path], action: modify|create|delete, do_not_touch: [path], code_hint: "sketch" }], files_likely_affected, do_not_touch, requires_core_change, risk_level: low|medium|high, risk_notes, test_strategy, estimated_complexity: trivial|small|medium|large, dependencies_affected, public_api_changed, self_review_notes }
 
 Rules:
-1. Be precise about file paths. Use the file context provided.
-2. Include ALL files required to satisfy the objective.
-3. Keep steps minimal. Fewer steps = fewer patch errors.
-4. Flag core changes honestly — this triggers human review.
-5. If the task is ambiguous, say so in risk_notes.
-6. Never suggest changes outside the task scope.
-7. Consider test strategy for every plan.
-8. DO NOT add steps to run tests, formatters, or CLI commands. You only plan file creations, modifications, and deletions.
-8a. Plans MUST have at most 4 steps. If you find yourself writing 5+ steps, you are over-decomposing. Combine steps that touch the same file into one step. If the task genuinely cannot be done in 4 steps, produce 4 steps covering the most critical changes and note in risk_notes: "Task may need to be split — more than 4 steps required."
-9. DO NOT add steps whose only purpose is reading or exploring files. The implementer has read_file, get_function, and search_grep tools for exploration. Every step MUST describe a concrete write action.
-10. Every step MUST have at least one valid file path in the 'files' array.
-11. Every modify or create step MUST include a code_hint showing the shape of the change (1-5 lines of pseudocode, a signature sketch, or a short code fragment). The implementer uses this as a starting point. If you skip code_hint, the implementer has to guess what you meant.
-12. Every step MUST populate do_not_touch with adjacent files or functions that are related to the change but must remain unmodified. Think: what will the implementer be tempted to edit that it shouldn't? List those. If genuinely nothing is adjacent, use an empty list.
-13. The top-level do_not_touch covers the entire plan. Per-step do_not_touch covers that specific step. Both MUST be populated.
-14. If the task mentions constraints about what NOT to change, those MUST appear in do_not_touch.
-15. You have tools to explore the codebase before submitting your plan. Use get_function to read the exact functions you plan to modify. Use get_class to understand class structures. Use search_grep to find where things are defined. Your code_hints MUST reference exact function names and line numbers from your exploration — not guesses.
-16. When you are confident in your plan, call submit_plan with the complete JSON. Do not submit a plan without first reading the target functions.
+- Max 4 steps. Combine same-file edits. Every step needs files, code_hint, do_not_touch.
+- No read-only or test-running steps. Only file mutations.
+- Use get_function/get_class/search_grep to explore BEFORE submitting. code_hints must reference real code.
+- Call submit_plan with the JSON when ready.
 """
 
     def run(self, context: AgentContext, **kwargs) -> dict[str, Any]:
@@ -305,7 +266,7 @@ Rules:
                         ]
                         proc = subprocess.run(cmd, cwd=workspace_dir, capture_output=True, text=True, timeout=10)
                         lines = proc.stdout.splitlines()
-                        res = "\n".join(lines[:30]) if lines else "No matches."
+                        res = "\n".join(lines[:15]) if lines else "No matches."
                     except Exception as e:
                         res = f"Search failed: {e}"
                     messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})

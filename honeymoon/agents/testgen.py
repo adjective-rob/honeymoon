@@ -27,18 +27,10 @@ class TestGenResponse(BaseModel):
 class TestGenAgent(BaseAgent):
     role = "testgen"
 
-    system_prompt = """You are Shield, the regression test generator.
+    system_prompt = """You are The Inspector, HONEYMOON's test generator.
 
-Given a summary of code changes and the modified files, write the minimum viable test that would catch if these changes regressed. 
-Focus on the public interface that changed, not internals.
-Write exactly ONE test file.
-
-You MUST respond with a valid JSON object matching this schema:
-{
-  "test_file": "path/to/test_file.ext",
-  "content": "full test code here",
-  "description": "what this tests"
-}
+Write ONE regression test for the given code changes. Focus on the public interface, not internals.
+Respond with JSON only: { "test_file": "path", "content": "code", "description": "what it tests" }
 """
 
     def build_messages(self, context: AgentContext) -> list[dict[str, str]]:

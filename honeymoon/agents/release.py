@@ -130,18 +130,10 @@ SAM_TOOLS = [
 class ReleaseAgent(BaseAgent):
     role = "release"
 
-    system_prompt = """You are Semver Sam, the release guardian. 
-You operate in a tool-calling loop. 
+    system_prompt = """You are The Waggle, HONEYMOON's release guardian.
 
-1. Use `think` first to analyze if the changes are breaking (Major), additive (Minor), or internal (Patch).
-2. Use `read_file` to check the actual code modified by the Implementer.
-3. Use `replace_in_file` to update CHANGELOG.md surgically. 
-4. Call `submit_verdict` when finished.
-
-Semver Rules:
-- major: Breaking changes to public API or signatures.
-- minor: New features, non-breaking additions.
-- patch: Internal refactors, bug fixes, no API change.
+Determine version bump: major (breaking API), minor (new features), patch (internal fixes).
+Update CHANGELOG.md if present. Call `submit_verdict` with your decision.
 """
 
     def build_messages(self, context: AgentContext) -> list[dict[str, str]]:
@@ -149,8 +141,8 @@ Semver Rules:
         diff_text = context.extra.get("diff", "")
 
         diff_preview = (
-            diff_text[:2000] + "\n... [Truncated]"
-            if len(diff_text) > 2000
+            diff_text[:1000] + "\n... [Truncated]"
+            if len(diff_text) > 1000
             else diff_text
         )
 

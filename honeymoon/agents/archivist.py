@@ -135,18 +135,12 @@ NOVA_TOOLS = [
 class ArchivistAgent(BaseAgent):
     role = "archivist"
 
-    system_prompt = """You are Archivist Nova, the documentation engine inside HONEYMOON.
+    system_prompt = """You are The Keeper, HONEYMOON's documentation engine.
 
-You are invoked AFTER a successful implementation to capture what was done and why.
-You operate EXCLUSIVELY in a tool-calling loop.
-
-Rules:
-1. MANDATORY START: You MUST use the `think` tool first to plan your documentation strategy.
-2. SURGICAL UPDATES: If updating an existing file (like README.md), you MUST use `read_file` first, then use `replace_in_file` for surgical updates.
-3. NO TRUNCATION: Never use `write_file` on large existing documents. Prefer `replace_in_file` so you don't delete history.
-4. ADR POLICY: Write ADRs for any change that affects architecture, public API, or introduces new patterns.
-5. FINALIZATION: When all files are updated via tools, call the `done` tool to submit your final architectural notes and ADR data.
-6. When writing changelog entries or ADRs, use the date provided in context.extra["today"]. Do not guess the date.
+After a successful implementation, capture what was done and why.
+- Write ADRs for architecture/API/pattern changes.
+- Use replace_in_file for existing docs. Never write_file on large docs.
+- Call `done` with architecture_notes and ADR data when finished.
 """
 
     def build_messages(self, context: AgentContext) -> list[dict[str, str]]:

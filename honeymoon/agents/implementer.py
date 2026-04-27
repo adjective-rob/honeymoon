@@ -294,37 +294,27 @@ IMPLEMENTER_TOOLS = [
 # Files above this threshold return head + tail with a nudge toward
 # get_function. Keeps the message list lean without losing orientation.
 # ---------------------------------------------------------------------------
-_READ_FILE_TRUNCATE_THRESHOLD = 200
-_READ_FILE_HEAD_LINES = 30
-_READ_FILE_TAIL_LINES = 30
+_READ_FILE_TRUNCATE_THRESHOLD = 100
+_READ_FILE_HEAD_LINES = 15
+_READ_FILE_TAIL_LINES = 15
 
 
 class ImplementerAgent(BaseAgent):
     role = "implementer"
 
-    system_prompt = """You are Patch, the surgical implementation engine.
+    system_prompt = """You are Builder, HONEYMOON's implementation engine.
 
-You now operate in an agentic loop. You have tools to think, read, write, check, and rollback.
-1. You MUST use the `think` tool to explain your step-by-step execution plan BEFORE you use the `write_file` tool for the first time.
-2. DO NOT guess type signatures. If you need to know how a module works, use `read_file` or `get_function`.
-3. For existing files, ALWAYS prefer `replace_in_file` to make surgical edits. Only use `write_file` if you are creating a brand new file or completely rewriting a very small one.
-4. If you are unsure if your code is right, use `run_check` to run the compiler, linter, or tests.
-5. When using write_file, you MUST output the ENTIRE file contents. NEVER use placeholders like 'rest of code here'. Doing so will delete the user's code.
-6. If you make a mistake and break a file, use the `rollback_file` tool to undo your changes and start over.
-7. Use `get_function` to read specific function bodies instead of `read_file` to save context space on large files.
-8. Use `find_references` to understand where a symbol is defined or called before changing its signature.
-9. When you are confident the plan is implemented, use the `done` tool.
-10. ALWAYS prefer replace_in_file over write_file for existing files. Use write_file ONLY for creating new files. Using write_file on an existing file risks dropping content.
-11. If the plan includes `do_not_touch` items, you MUST NOT modify those files or functions. They are explicitly out of scope.
-12. If the plan includes `code_hint`, use it as a starting point for your implementation. Verify the hint against actual code before applying — hints are approximate, not guaranteed correct.
-13. The initial file context shows signatures and structure, not full content. Use `get_function` to read specific functions, or use `read_file` with `start_line`/`end_line` to read a range of a large file. Avoid reading entire large files — it wastes context budget.
-14. NEVER read_file an entire file over 200 lines. Use get_function or read_file with start_line/end_line. Every full-file read costs ~5K tokens — you have a budget.
-15. You MUST attempt your first replace_in_file or write_file by step 8. Reading beyond step 8 without writing means you are stalling. Use what you have and start editing.
-16. Every code_hint for a 'modify' action MUST include the exact function name or line range where the change goes. Example: "In ImplementerAgent.run(), after the `response = self.router.complete()` call (around line 325), add: loop_tokens += response.tokens_used". The implementer will use get_function to read that exact function and apply the hint. Vague hints like "add token tracking to the loop" waste implementer steps.
-17. When the plan includes a code_hint referencing a specific function, your FIRST tool call after think should be get_function for that exact function. Do NOT read_file the entire file.
-18. After a successful run_check that shows tests passing, call done immediately. Do not read more files. The task is complete.
-19. For modifying existing functions, prefer `patch_function` over `replace_in_file`. It uses AST boundaries so you don't need exact string matching — just provide the function name and complete new source. Use `replace_in_file` only for changes outside function bodies (imports, constants, class-level attributes).
-20. EXCEPTION to rule 19: For docstring-only or comment-only changes, NEVER use `patch_function`. Use `replace_in_file` to insert the docstring immediately after the function signature line. `patch_function` requires rewriting the entire function body, which risks hallucinating a replacement. A docstring insertion is a 1-line `replace_in_file` operation. Example: replace `def run(self, task):` with `def run(self, task):\\n    \\"\\"\\"Execute the full pipeline for a task.\\"\\"\\"'`
+Loop: think → read → edit → test → done.
+
+Rules:
+- Call `think` FIRST. Plan your approach.
+- Use get_function over read_file. Never read files >100 lines whole.
+- Use replace_in_file for edits. write_file only for NEW files.
+- Use patch_function for function-body changes (AST-aware, no string matching needed).
+- Follow the plan's code_hint exactly. Verify against real code first.
+- Run tests after edits. If tests pass, call done immediately.
+- Do not touch do_not_touch files. Stay in scope.
+- Write by step 8 or you're stalling.
 """
 
     def build_messages(self, context: AgentContext) -> list[dict[str, str]]:
@@ -547,8 +537,8 @@ Plan: {steps_text}
                     read_count += 1
 
                 elif tc_name == "search_grep":
-                    if search_count >= 3:
-                        res = "You have searched multiple times recently. Consider using `think` to consolidate your findings or `read_file` to look closer."
+                    if search_count >= 2:
+                        res = "Search limit reached. Use `think` to consolidate or `get_function` to read specific code."
                         messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
                         continue
 
@@ -567,8 +557,8 @@ Plan: {steps_text}
                         ]
                         proc = subprocess.run(cmd, cwd=workspace_dir, capture_output=True, text=True, timeout=30)
                         lines = proc.stdout.splitlines()
-                        if len(lines) > 50:
-                            res = "\n".join(lines[:50]) + "\n(truncated, refine your search)"
+                        if len(lines) > 15:
+                            res = "\n".join(lines[:15]) + "\n(truncated, refine your search)"
                         else:
                             res = proc.stdout if proc.stdout else "No matches found."
                     except Exception as e:

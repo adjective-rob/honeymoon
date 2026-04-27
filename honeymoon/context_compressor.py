@@ -30,7 +30,7 @@ def compress_stale_messages(messages: list[dict]) -> None:
                 tname = messages[i].get("name")
 
                 # Smart symbol extraction for read_file
-                if tname == "read_file" and len(content) > 1000:
+                if tname == "read_file" and len(content) > 500:
                     lines = content.splitlines()
                     head = "\n".join(lines[:10])
                     tail = "\n".join(lines[-10:])
@@ -56,7 +56,7 @@ def compress_stale_messages(messages: list[dict]) -> None:
                     )
 
                 # Reference-only extraction for search_grep
-                elif tname == "search_grep" and len(content) > 500:
+                elif tname == "search_grep" and len(content) > 300:
                     lines = content.splitlines()
                     refs = []
                     for line in lines:
@@ -74,7 +74,7 @@ def compress_stale_messages(messages: list[dict]) -> None:
                         )
 
                 # Compress verbose run_check/get_error output
-                elif tname in ("run_check", "get_error") and len(content) > 800:
+                elif tname in ("run_check", "get_error") and len(content) > 400:
                     lines = content.splitlines()
                     exit_line = lines[0] if lines else ""
                     tail = "\n".join(lines[-20:])
@@ -118,8 +118,8 @@ def compress_stale_messages(messages: list[dict]) -> None:
 # compress_stale_messages shrinks content; this function removes messages.
 # --------------------------------------------------------------------------- #
 
-_HARD_COMPACT_THRESHOLD = 50  # Trigger compaction above this many messages
-_HARD_COMPACT_KEEP_RECENT = 12  # Always preserve the N most recent messages
+_HARD_COMPACT_THRESHOLD = 30  # Trigger compaction above this many messages
+_HARD_COMPACT_KEEP_RECENT = 8  # Always preserve the N most recent messages
 
 
 def hard_compact_messages(messages: list[dict]) -> None:
