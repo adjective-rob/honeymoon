@@ -10,6 +10,7 @@ Plus utilities:
   - glitchlab status        (check config + API keys)
   - glitchlab init <path>   (bootstrap .glitchlab in a repo)
   - glitchlab batch         (parallel task execution)
+  - glitchlab swarm         (decompose + parallel ant colony)
   - glitchlab history       (view previous runs)
   - glitchlab audit         (scan for new tasks)
 """
@@ -810,6 +811,83 @@ def audit(
     console.print("\n[bold]Next steps:[/]")
     console.print(f"  1. Run batch:        [cyan]glitchlab batch --repo {repo_path} --tasks-dir {out_dir}[/]")
     console.print(f"  2. Monitor:          [cyan]glitchlab history --repo {repo_path} --stats[/]")
+
+@app.command()
+def swarm(
+    repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),
+    objective: str = typer.Option(None, "--objective", "-o", help="Task objective to decompose and swarm"),
+    task_file: Optional[Path] = typer.Option(None, "--task-file", "-f", help="Path to task YAML"),
+    ants: int = typer.Option(3, "--ants", "-a", help="Max concurrent ant workers"),
+    allow_core: bool = typer.Option(False, "--allow-core"),
+    test_cmd: Optional[str] = typer.Option(None, "--test", "-t"),
+    verbose: bool = typer.Option(False, "--verbose", "-v"),
+):
+    """Swarm mode — decompose a task and run sub-tasks in parallel."""
+    from glitchlab.decomposer import TaskDecomposer
+    from glitchlab.router import Router
+    from glitchlab.swarm import run_swarm
+
+    _print_banner()
+    _configure_logging(verbose)
+
+    repo = repo.resolve()
+    if not repo.exists():
+        console.print(f"[red]Repository not found: {repo}[/]")
+        raise typer.Exit(1)
+
+    config = load_config(repo)
+
+    # Resolve objective
+    if task_file:
+        task = Task.from_yaml(task_file)
+        obj = task.objective
+        constraints = task.constraints
+    elif objective:
+        obj = objective
+        constraints = []
+    else:
+        console.print("[red]Specify --objective or --task-file[/]")
+        raise typer.Exit(1)
+
+    if not test_cmd:
+        test_cmd = _detect_test_command(repo)
+
+    # Initialize audit + sentry
+    AuditLogger(log_file=repo / ".glitchlab" / "logs" / "audit.jsonl")
+
+    console.print("[bold]Decomposing task...[/]\n")
+
+    router = Router(config)
+    decomposer = TaskDecomposer(router, config)
+
+    subtasks = decomposer.decompose(
+        objective=obj,
+        repo_path=str(repo),
+        working_dir=str(repo),
+        constraints=constraints,
+    )
+
+    if not subtasks:
+        console.print("[red]Decomposer produced no sub-tasks.[/]")
+        raise typer.Exit(1)
+
+    console.print(f"[cyan]Decomposed into {len(subtasks)} sub-tasks:[/]")
+    for st in subtasks:
+        dep_str = f" (depends: {', '.join(st.depends_on)})" if st.depends_on else ""
+        console.print(f"  [dim]{st.subtask_id}[/]: {len(st.files)} files{dep_str}")
+
+    results = run_swarm(
+        repo_path=repo,
+        subtasks=subtasks,
+        max_ants=ants,
+        allow_core=allow_core,
+        test_command=test_cmd,
+    )
+
+    failures = sum(1 for r in results if r.status not in ("pr_created", "committed", "merged"))
+    if failures:
+        raise typer.Exit(1)
+
 
 @app.command()
 def doctor():
