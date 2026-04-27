@@ -8,7 +8,12 @@ Allows precise "find references" and "get function body" without blind grepping.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
+
 from loguru import logger
+
+if TYPE_CHECKING:
+    from glitchlab.pheromone import PheromoneTrail
 
 try:
     from tree_sitter_languages import get_parser
@@ -34,12 +39,37 @@ SKIP_DIRS = {
 
 
 class SymbolIndex:
-    """Lazily builds and queries a local AST map of the workspace."""
+    """Lazily builds and queries a local AST map of the workspace.
+
+    Supports optional pheromone-based locking: if a PheromoneTrail is
+    attached, check_lock() will report whether a file/symbol is claimed
+    by another ant before allowing edits.
+    """
 
     def __init__(self, workspace_dir: Path):
         self.workspace_dir = workspace_dir
         self._cache = {}  # rel_path -> (tree, source_bytes, lang)
         self._scanned = False
+        self._pheromone = None  # Optional PheromoneTrail for swarm locking
+        self._ant_id: str | None = None
+
+    def attach_pheromone(self, trail: "PheromoneTrail", ant_id: str) -> None:
+        """Attach a pheromone trail for symbol-level locking in swarm mode."""
+        self._pheromone = trail
+        self._ant_id = ant_id
+
+    def check_lock(self, file_path: str) -> str | None:
+        """Check if a file is locked by another ant.
+
+        Returns the ant_id of the holder, or None if unlocked.
+        Only active when a pheromone trail is attached.
+        """
+        if self._pheromone is None:
+            return None
+        holder = self._pheromone.is_claimed(file_path)
+        if holder is not None and holder != self._ant_id:
+            return holder
+        return None
 
     def _scan_workspace(self) -> None:
         """Lazily parse all supported code files on first query."""
