@@ -4,7 +4,7 @@
 
 ### Added
 
-- Introduced surgical mode to GlitchLab, enabling a focused minimal fix pipeline.
+- Introduced surgical mode to Honeymoon, enabling a focused minimal fix pipeline.
 - Added `--surgical` CLI option to `run` and `interactive` commands.
 - Added profile support in config loading to overlay surgical pipeline configuration.
 - Controller run logic updated to support surgical mode execution path with limited fix attempts and no planning step.

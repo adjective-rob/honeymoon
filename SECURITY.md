@@ -2,7 +2,7 @@
 
 ## 🛡️ Our Commitment
 
-As a multi-agent system that executes code and interacts with sensitive repositories, security is a core pillar of GLITCHLAB. We prioritize:
+As a multi-agent system that executes code and interacts with sensitive repositories, security is a core pillar of HONEYMOON. We prioritize:
 
 * **Deterministic Governance**: Explicit orchestration over unpredictable emergent behavior.
 
@@ -24,7 +24,7 @@ We welcome reports concerning security flaws, especially those related to:
 
 
 * 
-**Credential Leaks**: Issues that might cause GLITCHLAB to accidentally commit or log local API keys.
+**Credential Leaks**: Issues that might cause HONEYMOON to accidentally commit or log local API keys.
 
 
 
@@ -38,11 +38,11 @@ Please **do not open a public GitHub issue** for security vulnerabilities. Inste
 
 ## 🔒 Security Architecture
 
-GLITCHLAB includes several built-in security features to protect your codebase:
+HONEYMOON includes several built-in security features to protect your codebase:
 
 ### 1. Tool Allowlisting
 
-Agents do not have arbitrary shell access. They can only execute commands explicitly defined in the `allowed_tools` list within `glitchlab/config.yaml`.
+Agents do not have arbitrary shell access. They can only execute commands explicitly defined in the `allowed_tools` list within `honeymoon/config.yaml`.
 
 ### 2. Workspace Isolation
 

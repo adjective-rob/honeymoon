@@ -1,7 +1,7 @@
 ---
-name: GLITCHLAB Task
-about: Create a task for GLITCHLAB to execute
-labels: ["glitchlab"]
+name: HONEYMOON Task
+about: Create a task for HONEYMOON to execute
+labels: ["honeymoon"]
 ---
 
 ## Objective

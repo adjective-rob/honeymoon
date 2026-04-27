@@ -1,26 +1,26 @@
-# Contributing to ⚡ GLITCHLAB
+# Contributing to ⚡ HONEYMOON
 
-First off, thank you for considering contributing to GLITCHLAB! It’s people like you that make GLITCHLAB a better tool for everyone.
+First off, thank you for considering contributing to HONEYMOON! It’s people like you that make HONEYMOON a better tool for everyone.
 
-As an agentic dev engine, GLITCHLAB has unique architectural patterns that you should understand before diving in.
+As an agentic dev engine, HONEYMOON has unique architectural patterns that you should understand before diving in.
 
 ## 🧠 Architectural Overview
 
-GLITCHLAB is built as a **deterministic orchestrator** (the Controller) that manages a pipeline of **stateless agents**.
+HONEYMOON is built as a **deterministic orchestrator** (the Controller) that manages a pipeline of **stateless agents**.
 
-1. **The Controller (`glitchlab/controller.py`)**: The brainstem. It manages the linear pipeline: Index → Plan → Implement → Test → Security → Release → PR.
+1. **The Controller (`honeymoon/controller.py`)**: The brainstem. It manages the linear pipeline: Index → Plan → Implement → Test → Security → Release → PR.
 
 
 2. 
-**Stateless Agents (`glitchlab/agents/`)**: Each agent is a specialized module with its own system prompt and JSON output schema.
+**Stateless Agents (`honeymoon/agents/`)**: Each agent is a specialized module with its own system prompt and JSON output schema.
 
 
 3. 
-**Governance (`glitchlab/governance/`)**: Enforces safety boundaries and protected paths.
+**Governance (`honeymoon/governance/`)**: Enforces safety boundaries and protected paths.
 
 
 4. 
-**Workspace (`glitchlab/workspace/`)**: Uses git worktrees to ensure that agent experimentation never touches your main branch directly.
+**Workspace (`honeymoon/workspace/`)**: Uses git worktrees to ensure that agent experimentation never touches your main branch directly.
 
 
 
@@ -76,8 +76,8 @@ python -m ruff check .
 
 If you want to add a new specialist (e.g., a "Documentation Auditor" or "Performance Profiler"):
 
-1. Create a new module in `glitchlab/agents/`.
-2. Inherit from `BaseAgent` in `glitchlab/agents/__init__.py`.
+1. Create a new module in `honeymoon/agents/`.
+2. Inherit from `BaseAgent` in `honeymoon/agents/__init__.py`.
 3. Define a clear `system_prompt` and implement `parse_response`.
 4. Register the agent in the `Controller`.
 
@@ -85,7 +85,7 @@ If you want to add a new specialist (e.g., a "Documentation Auditor" or "Perform
 
 To give agents more capabilities (e.g., `docker` or `sql-lint` support):
 
-1. Add the base command to the `allowed_tools` list in `glitchlab/config.yaml`.
+1. Add the base command to the `allowed_tools` list in `honeymoon/config.yaml`.
 2. Ensure it is safe and does not allow arbitrary shell injection.
 
 ## 📜 Development Principles

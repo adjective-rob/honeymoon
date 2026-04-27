@@ -1,7 +1,0 @@
-id: doc-repair-001
-objective: "Add Google-style docstrings to all public methods in glitchlab/router.py."
-constraints:
-  - "Include Args, Returns, and Raises sections."
-  - "Describe the token counting and cost calculation logic specifically."
-risk: low
-mode: maintenance
