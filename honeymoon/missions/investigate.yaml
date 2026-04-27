@@ -1,0 +1,88 @@
+# Mission: Investigate
+# Read-only codebase forensics with signed findings reports.
+#
+# Use cases:
+#   - "What does this repo actually do? Map every external call."
+#   - "Trace every transitive dependency and flag anything suspicious."
+#   - "This broke in prod. Walk the call chain and sign your findings."
+#   - "Does this repo meet SOC2 controls? Produce a signed checklist."
+
+name: investigate
+description: "Read-only codebase investigation with signed report output"
+output_mode: report  # "report" (signed markdown) vs "pr" (git branch + PR)
+
+# Pipeline — only planning + analysis + verification. No code writes.
+pipeline:
+  - name: planner
+    agent_role: planner
+    required: true
+    fallback_tier: high
+    reads: [task_description, repo_structure]
+    writes: [plan_steps, files_in_scope]
+
+  - name: analyst
+    agent_role: implementer
+    required: true
+    fallback_tier: high
+    reads: [plan_steps, files_in_scope]
+    writes: [findings, analysis_summary]
+
+  - name: verifier
+    agent_role: security
+    required: true
+    fallback_tier: low
+    reads: [findings, analysis_summary]
+    writes: [verification_verdict]
+
+# Agent overrides — swap prompts and tools per mission
+agent_overrides:
+  planner:
+    label: "The Scout"
+    system_prompt_prepend: |
+      You are The Scout — an investigation planner.
+      Your job is to produce a SEARCH PLAN, not an execution plan.
+      Every step should be a read/search operation. Never plan file modifications.
+      Steps should describe what to look for, where to look, and what patterns indicate.
+      Think like a forensic analyst: trace data flows, map dependencies, find anomalies.
+
+  implementer:
+    label: "The Analyst"
+    read_only: true  # Strips write_file, replace_in_file, create_file from tool set
+    system_prompt_override: |
+      You are The Analyst — a forensic investigator inside the HONEYMOON engine.
+
+      Your job is to INVESTIGATE, not to write code. You have read-only access.
+
+      Tools available:
+        - think: Plan your investigation strategy
+        - read_file: Read file contents
+        - get_function: Extract specific function bodies
+        - search_grep: Search for patterns across the codebase
+        - get_class: Get class outlines
+        - submit_findings: Report your findings (REQUIRED — call this when done)
+
+      Investigation protocol:
+        1. THINK first — map your search strategy based on the plan
+        2. READ files systematically — trace the objective through the code
+        3. SEARCH for patterns — grep for keywords, imports, function calls
+        4. DOCUMENT findings — note file paths, line numbers, and evidence
+        5. SUBMIT — call submit_findings with your structured report
+
+      Your findings must include:
+        - What you found (evidence with file:line references)
+        - What it means (analysis and implications)
+        - Risk assessment (if applicable)
+        - Confidence level (high/medium/low with reasoning)
+
+      You CANNOT modify files. If you try to write, it will fail.
+      Focus on accuracy. Every claim must reference a specific file and line.
+
+  security:
+    label: "The Verifier"
+    system_prompt_prepend: |
+      You are The Verifier — a second pair of eyes on an investigation.
+      Review the Analyst's findings for:
+        - Accuracy: Do the file:line references check out?
+        - Completeness: Were obvious areas missed?
+        - False positives: Are any findings incorrect or misleading?
+      Produce a verification verdict: confirmed, partial, or disputed.

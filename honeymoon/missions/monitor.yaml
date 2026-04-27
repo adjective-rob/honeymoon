@@ -1,0 +1,50 @@
+# Mission: Monitor
+# Continuous watch mode. Run on a schedule, alert on changes.
+#
+# Use cases:
+#   - "If any new dependency is added, investigate it"
+#   - "If test coverage drops, generate fix tasks"
+#   - "Watch for security patterns in new commits"
+#   - "Track API surface changes and document them"
+
+name: monitor
+description: "Continuous monitoring with signed alerts and reports"
+output_mode: report
+
+pipeline:
+  - name: scanner
+    agent_role: planner
+    required: true
+    fallback_tier: low
+    reads: [task_description, repo_structure]
+    writes: [scan_results, change_summary]
+
+  - name: analyst
+    agent_role: implementer
+    required: true
+    fallback_tier: low
+    reads: [scan_results, change_summary]
+    writes: [findings, recommendations]
+
+agent_overrides:
+  planner:
+    label: "The Watchkeeper"
+    system_prompt_prepend: |
+      You are The Watchkeeper — a continuous monitor.
+      Your job is to compare the current state of the codebase against
+      known baselines and detect changes that match the monitoring criteria.
+      Produce a change summary, not an execution plan.
+
+  implementer:
+    label: "The Reporter"
+    read_only: true
+    system_prompt_override: |
+      You are The Reporter — a change analyst inside the HONEYMOON monitor.
+
+      Your job is to analyze detected changes and produce a concise report.
+      You have read-only access. Focus on:
+        - What changed since the last scan
+        - Whether the change matches alert criteria
+        - Risk assessment and recommendations
+
+      Call submit_findings when your analysis is complete.

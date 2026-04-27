@@ -93,6 +93,7 @@ def run(
     auto_approve: bool = typer.Option(False, "--auto-approve", "-y", help="Skip human intervention gates"),
     surgical: bool = typer.Option(False, "--surgical", help="Run surgical pipeline"),
     auto_merge: bool = typer.Option(False, "--auto-merge", help="Automatically squash and merge the PR if successful"),
+    mission_name: Optional[str] = typer.Option(None, "--mission", "-m", help="Mission profile (investigate, bulk, monitor)"),
     test_cmd: Optional[str] = typer.Option(None, "--test", "-t", help="Test command to run (e.g. 'cargo test')"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
 ):
@@ -110,6 +111,13 @@ def run(
     if auto_merge:
         config.automation.auto_merge_pr = True
 
+    # Load mission profile if specified
+    mission = None
+    if mission_name:
+        from honeymoon.mission import load_mission
+        mission = load_mission(mission_name, repo)
+        console.print(f"[cyan]Mission: {mission.name} — {mission.description}[/]")
+
     # Resolve task
     if issue:
         console.print(f"[cyan]Fetching GitHub issue #{issue}...[/]")
@@ -119,7 +127,7 @@ def run(
         tf = task_file or (repo / ".honeymoon" / "tasks" / "queue" / "next.yaml")
         if not tf.exists():
             tf = (repo / ".honeymoon" / "tasks" / "next.yaml")
-            
+
         if not tf.exists():
             console.print(f"[red]Task file not found: {tf}[/]")
             raise typer.Exit(1)
@@ -132,7 +140,6 @@ def run(
     if not test_cmd:
         test_cmd = _detect_test_command(repo)
 
-    # --- NEW: Initialize the Zephyr Audit Logger subscriber ---
     AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
 
     controller = Controller(
@@ -142,6 +149,7 @@ def run(
         auto_approve=auto_approve,
         surgical=surgical,
         test_command=test_cmd,
+        mission=mission,
     )
 
     result = controller.run(task)
@@ -830,6 +838,63 @@ def audit(
     console.print("\n[bold]Next steps:[/]")
     console.print(f"  1. Run batch:        [cyan]honeymoon batch --repo {repo_path} --tasks-dir {out_dir}[/]")
     console.print(f"  2. Monitor:          [cyan]honeymoon history --repo {repo_path} --stats[/]")
+
+@app.command()
+def investigate(
+    repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),
+    objective: str = typer.Option(..., "--objective", "-o", help="What to investigate"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
+):
+    """Investigate a codebase — read-only forensics with a signed report."""
+    from honeymoon.mission import load_mission
+    from honeymoon.report import write_report
+
+    _print_banner()
+    _configure_logging(verbose)
+
+    repo = repo.resolve()
+    if not repo.exists():
+        console.print(f"[red]Repository not found: {repo}[/]")
+        raise typer.Exit(1)
+
+    config = load_config(repo)
+    mission = load_mission("investigate", repo)
+
+    console.print(f"[bold cyan]Mission: {mission.name}[/]")
+    console.print(f"[dim]Objective: {objective}[/]\n")
+
+    task = Task.from_interactive(objective)
+
+    AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
+
+    controller = Controller(
+        repo_path=repo,
+        config=config,
+        auto_approve=True,
+        mission=mission,
+    )
+
+    result = controller.run(task)
+
+    # Write signed report
+    findings = result.get("implementation", {})
+    verification = result.get("security", {})
+    budget = result.get("budget", {})
+
+    report_path = write_report(
+        repo_path=repo,
+        run_id=result.get("run_id", task.task_id),
+        mission_name=mission.name,
+        objective=objective,
+        findings=findings,
+        verification=verification,
+        budget=budget,
+    )
+
+    console.print("\n[bold green]Investigation complete.[/]")
+    console.print(f"  Report: {report_path}")
+    console.print("  Verify: check .honeymoon/keys/verify.pub against report signature")
+
 
 @app.command()
 def swarm(

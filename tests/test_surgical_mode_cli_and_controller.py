@@ -22,7 +22,7 @@ def test_run_cli_passes_surgical_and_controller_uses_surgical_profile(monkeypatc
     observed = {}
 
     class DummyController:
-        def __init__(self, repo_path, config, allow_core=False, auto_approve=False, surgical=False, test_command=None):
+        def __init__(self, repo_path, config, allow_core=False, auto_approve=False, surgical=False, test_command=None, mission=None):
             controller_inits.append(
                 {
                     "repo_path": repo_path,

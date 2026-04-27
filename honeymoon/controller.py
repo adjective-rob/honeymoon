@@ -53,6 +53,7 @@ from honeymoon.lifecycle import (
     startup,
     write_session_entry,
 )
+from honeymoon.mission import Mission, apply_mission_overrides
 from honeymoon.prelude import PreludeContext
 from honeymoon.hive_context import HiveContext
 from honeymoon.registry import AGENT_REGISTRY, get_agent
@@ -93,6 +94,7 @@ class Controller:
         auto_approve: bool = False,
         surgical: bool = False,
         test_command: str | None = None,
+        mission: Mission | None = None,
     ):
         self.repo_path = repo_path.resolve()
         self.config = config or load_config(repo_path)
@@ -100,6 +102,7 @@ class Controller:
         self.auto_approve = auto_approve
         self.surgical = surgical
         self.test_command = test_command
+        self.mission = mission
 
         # Core components
         self.router = Router(self.config)
@@ -110,6 +113,12 @@ class Controller:
             role: get_agent(role, self.router)
             for role in AGENT_REGISTRY
         }
+
+        # Apply mission overrides to agent behavior
+        if self.mission:
+            apply_mission_overrides(self.agents, self.mission)
+            if self.mission.pipeline:
+                self.config.pipeline = self.mission.pipeline
 
         # History tracking
         self._history = TaskHistory(self.repo_path)

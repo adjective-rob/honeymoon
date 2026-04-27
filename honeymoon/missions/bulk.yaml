@@ -1,0 +1,18 @@
+# Mission: Bulk
+# High-volume mechanical work. The default Honeymoon behavior.
+# This is what the swarm was built for.
+#
+# Use cases:
+#   - "Fix all missing tests across the auth module"
+#   - "Add input validation to every API endpoint"
+#   - "Update all deprecated API calls to v2"
+#   - "Add type hints to every public function"
+
+name: bulk
+description: "High-volume mechanical code changes with signed audit trail"
+output_mode: pr
+
+# Standard 7-agent pipeline — no overrides needed
+pipeline: default
+
+agent_overrides: {}
