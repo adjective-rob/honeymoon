@@ -390,22 +390,28 @@ risk: low
     console.print(f"  Example: {task_path}")
     console.print(f"  Roadmap: {roadmap_path}")
 
-    # Bootstrap Prelude if available
+    # Generate native context (always available, no external deps)
+    from honeymoon.hive_context import HiveContext
+    hive_ctx = HiveContext(repo)
+    hive_ctx.generate()
+    console.print("[green]  🧠 Native context generated[/]")
+
+    # Bootstrap Prelude if available (upgrade path)
     prelude = PreludeContext(repo)
     if prelude.cli_available:
         if not prelude.context_exists:
-            console.print("\n[magenta]📋 Prelude detected — initializing project context...[/]")
+            console.print("\n[magenta]📋 Prelude detected — initializing rich context...[/]")
             if prelude.init():
-                console.print("[green]  ✅ .context/ created — your agents now see the full project[/]")
+                console.print("[green]  ✅ .context/ created — agents get full project understanding[/]")
                 console.print("  [dim]Add decisions: prelude decision[/]")
                 console.print("  [dim]Update context: prelude update[/]")
             else:
-                console.print("[yellow]  ⚠ Prelude init failed — agents will work without project context[/]")
+                console.print("[yellow]  ⚠ Prelude init failed — using native context[/]")
         else:
             console.print(f"\n[dim]📋 Prelude context already exists at {prelude.context_dir}[/]")
     else:
         console.print(
-            "\n[dim]💡 Install Prelude for richer agent context: "
+            "[dim]  💡 Install Prelude for richer context: "
             "npm install -g prelude-context[/]"
         )
 

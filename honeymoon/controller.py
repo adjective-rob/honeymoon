@@ -54,6 +54,7 @@ from honeymoon.lifecycle import (
     write_session_entry,
 )
 from honeymoon.prelude import PreludeContext
+from honeymoon.hive_context import HiveContext
 from honeymoon.registry import AGENT_REGISTRY, get_agent
 from honeymoon.router import BudgetExceededError, Router
 from honeymoon.run_context import RunContext
@@ -113,8 +114,12 @@ class Controller:
         # History tracking
         self._history = TaskHistory(self.repo_path)
 
-        # Prelude — available as tool context, NOT global prefix
-        self._prelude = PreludeContext(self.repo_path)
+        # Context provider: Prelude if installed, native HiveContext otherwise
+        prelude = PreludeContext(self.repo_path)
+        if prelude.available:
+            self._prelude = prelude
+        else:
+            self._prelude = HiveContext(self.repo_path)
 
     # -----------------------------------------------------------------------
     # Main Entry Point

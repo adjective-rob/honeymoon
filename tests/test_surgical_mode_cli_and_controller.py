@@ -72,7 +72,7 @@ def test_run_cli_passes_surgical_and_controller_uses_surgical_profile(monkeypatc
     monkeypatch.setattr(controller_mod.bus, "emit", lambda *args, **kwargs: None)
     monkeypatch.setattr(controller_mod, "Router", lambda config: SimpleNamespace(config=config))
     monkeypatch.setattr(controller_mod, "BoundaryEnforcer", lambda protected_paths: SimpleNamespace(protected_paths=protected_paths))
-    monkeypatch.setattr(controller_mod, "PreludeContext", lambda repo_path: SimpleNamespace())
+    monkeypatch.setattr(controller_mod, "PreludeContext", lambda repo_path: SimpleNamespace(available=False))
     monkeypatch.setattr(controller_mod, "TaskHistory", lambda repo_path: SimpleNamespace(record=lambda result: None))
     monkeypatch.setattr(controller_mod, "AGENT_REGISTRY", {})
     monkeypatch.setattr(controller_mod, "get_agent", lambda role, router: None)
