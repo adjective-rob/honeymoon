@@ -29,7 +29,7 @@
 
 **The Hive Mind Dev Engine**
 
-A local-first, multi-agent development and security engine. Builds code, investigates codebases, simulates attacks, and tracks security posture — all with cryptographic attestation. Every agent action is Zephyr-signed. Every report is Ed25519-signed. Every finding is provable.
+A local-first, multi-agent development and security engine. Builds code, investigates codebases, simulates attacks, and tracks security posture — all with cryptographic attestation. Every agent action is signed. Every report is signed. Every finding is provable.
 
 ---
 
