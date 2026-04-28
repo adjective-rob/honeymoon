@@ -119,17 +119,20 @@ class HoneymoonDaemon:
 
         try:
             # Send initial state
-            await websocket.send(json.dumps(self._get_state(), default=str))
+            state = self._get_state()
+            await websocket.send(json.dumps(state, default=str))
+            logger.debug(f"[DAEMON] Sent initial state (posture={state.get('posture')})")
 
             # Listen for commands from the dashboard
             async for message in websocket:
+                logger.debug(f"[DAEMON] Received: {message[:200]}")
                 try:
                     cmd = json.loads(message)
                     await self._handle_command(cmd, websocket)
                 except json.JSONDecodeError:
-                    pass
-        except Exception:
-            pass
+                    logger.warning(f"[DAEMON] Bad JSON from client: {message[:100]}")
+        except Exception as e:
+            logger.debug(f"[DAEMON] WebSocket handler error: {e}")
         finally:
             self.ws_clients.discard(websocket)
             logger.info(f"[DAEMON] Dashboard disconnected ({len(self.ws_clients)} clients)")
