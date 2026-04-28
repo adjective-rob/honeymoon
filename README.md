@@ -92,9 +92,13 @@ Every hardening run:
 4. Posture score is computed and appended to the signed ledger
 5. Findings persist to [Prelude](https://www.npmjs.com/package/prelude-context) as architectural decisions
 
-### The Moat
+### Why This Matters
 
-Every simulation produces **signed, replayable attack chains**. Over time across repos, this becomes a unique dataset: vulnerability → exploitation path → impact. Tamper-evident. Verifiable by anyone with the public key. No one else has this.
+Most security tools tell you *what's wrong*. Honeymoon shows you *how an attacker would exploit it* — step by step, file by file, cryptographically signed at every step.
+
+Every simulation produces a **signed, replayable attack chain**. Every hardening run builds a **tamper-evident record** of your security posture. Over time, this becomes a verifiable corpus of vulnerability → exploitation path → impact across your entire portfolio.
+
+Auditors don't have to trust your word. They can verify the signatures.
 
 ---
 
