@@ -69,8 +69,7 @@ def check_repo_clean(repo_path: Path) -> None:
     dirty_files = [
         line for line in status.splitlines()
         if not line[3:].startswith(".honeymoon/")
-        and not line[3:].startswith(".context/session.json")
-        and not line[3:].startswith(".context/.prelude/")
+        and not line[3:].startswith(".context/")
     ]
 
     if dirty_files:
