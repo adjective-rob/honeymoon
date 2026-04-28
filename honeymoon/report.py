@@ -127,6 +127,9 @@ def write_report(
         sections.append("## Verification")
         sections.append("")
         verdict = verification.get("verdict", "unverified")
+        # Map security agent verdicts to investigation verdicts
+        verdict_map = {"pass": "confirmed", "warn": "partial", "block": "disputed"}
+        verdict = verdict_map.get(verdict, verdict)
         verdict_icon = {
             "confirmed": "✅",
             "partial": "⚠️",
@@ -134,6 +137,15 @@ def write_report(
         }.get(verdict, "❓")
         sections.append(f"**Verdict:** {verdict_icon} {verdict.upper()}")
         sections.append("")
+        # Include verifier summary and issues
+        if verification.get("summary"):
+            sections.append(verification["summary"])
+            sections.append("")
+        for issue in verification.get("issues", []):
+            if issue.get("description") and issue.get("file") != "system":
+                sections.append(f"- **{issue.get('severity', 'info').upper()}** [{issue.get('file', '?')}]: {issue['description']}")
+        if verification.get("issues"):
+            sections.append("")
         if verification.get("notes"):
             sections.append(verification["notes"])
             sections.append("")

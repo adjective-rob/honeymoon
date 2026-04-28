@@ -246,3 +246,11 @@ Thumbs.db
 .claude/settings.local.json
 run-tasks.sh
 tasks_for_claude_code/.glitchlab/task_state.json
+
+# HONEYMOON
+.honeymoon/worktrees/
+.honeymoon/tasks/
+.honeymoon/logs/
+.honeymoon/keys/
+.context/session.json
+.context/.prelude/
