@@ -17,6 +17,7 @@ Plus utilities:
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -891,9 +892,21 @@ def investigate(
         budget=budget,
     )
 
-    console.print("\n[bold green]Investigation complete.[/]")
-    console.print(f"  Report: {report_path}")
-    console.print("  Verify: check .honeymoon/keys/verify.pub against report signature")
+    # Emit findings as prelude decisions for cross-session persistence
+    finding_list = findings.get("findings", [])
+    if finding_list:
+        _emit_prelude_decisions(repo, finding_list, objective)
+
+    console.print("\n[bold green]🍯 Investigation complete.[/]")
+    console.print(f"  [bold]Report:[/]    {report_path}")
+    console.print(f"  [bold]Findings:[/]  {len(finding_list)}")
+    if finding_list:
+        for f in finding_list:
+            sev = f.get("severity", "info").upper()
+            sev_color = {"CRITICAL": "red", "HIGH": "red", "MEDIUM": "yellow", "LOW": "blue", "INFO": "dim"}.get(sev, "dim")
+            console.print(f"    [{sev_color}]{sev}[/] {f.get('title', '?')}")
+    console.print(f"  [bold]Cost:[/]     ${budget.get('estimated_cost', 0):.4f}")
+    console.print("  [bold]Verify:[/]   check .honeymoon/keys/verify.pub against report signature")
 
 
 @app.command()
@@ -995,6 +1008,47 @@ def doctor():
     console.print(table)
     if failed:
         sys.exit(1)
+
+# ---------------------------------------------------------------------------
+# Prelude Decision Emission
+# ---------------------------------------------------------------------------
+
+def _emit_prelude_decisions(repo: Path, findings: list[dict], objective: str) -> None:
+    """Emit investigation findings as prelude decisions for cross-session persistence."""
+    import shutil
+    if not shutil.which("prelude"):
+        return
+
+    for finding in findings:
+        title = finding.get("title", "Untitled finding")
+        severity = finding.get("severity", "info").upper()
+        evidence = finding.get("evidence", "")
+        analysis = finding.get("analysis", "")
+
+        # Only persist medium+ findings as decisions
+        if severity in ("INFO", "LOW"):
+            continue
+
+        rationale = f"{analysis}\n\nEvidence: {evidence}" if evidence else analysis
+        tags = f"honeymoon,investigate,{severity.lower()}"
+
+        try:
+            subprocess.run(
+                [
+                    "prelude", "decision", f"[{severity}] {title}",
+                    "--rationale", rationale[:500],
+                    "--status", "proposed",
+                    "--author", "honeymoon-analyst",
+                    "--tags", tags,
+                ],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except Exception:
+            pass  # Non-fatal — prelude integration is best-effort
+
 
 # ---------------------------------------------------------------------------
 # Helpers

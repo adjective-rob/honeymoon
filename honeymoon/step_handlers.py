@@ -375,17 +375,25 @@ def handle_security_result(
 
     if ps.sec.get("verdict") == "block":
         ctx.state.security_verdict = "block"
-        console.print("[red]🚫 Security blocked this change.[/]")
-        print_security_issues(ps.sec)
 
-        if ctx.auto_approve:
+        # In investigate/report mode, "block" is just a verification verdict, not a pipeline halt
+        is_report_mode = ctx.mission and ctx.mission.output_mode == "report"
+        if is_report_mode:
+            console.print("[yellow]🔍 Verifier verdict: BLOCK (recorded as disputed)[/]")
+            print_security_issues(ps.sec)
+            step_result.status = "success"
+        elif ctx.auto_approve:
+            console.print("[red]🚫 Security blocked this change.[/]")
+            print_security_issues(ps.sec)
             console.print("[red]❌ Auto-approve enabled. Aborting dangerous PR.[/]")
             ps.result["status"] = "security_blocked"
             return HandlerSignal.EARLY_RETURN
-
-        if not _confirm(ctx, "Override security block?"):
-            ps.result["status"] = "security_blocked"
-            return HandlerSignal.EARLY_RETURN
+        else:
+            console.print("[red]🚫 Security blocked this change.[/]")
+            print_security_issues(ps.sec)
+            if not _confirm(ctx, "Override security block?"):
+                ps.result["status"] = "security_blocked"
+                return HandlerSignal.EARLY_RETURN
     else:
         # Normalize missing/empty verdict to "warn"
         verdict = ps.sec.get("verdict") or "warn"

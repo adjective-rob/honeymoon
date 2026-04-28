@@ -29,7 +29,7 @@ def test_write_report_creates_files(tmp_path: Path):
     )
     assert report_path.exists()
     content = report_path.read_text()
-    assert "# Investigation Report" in content
+    assert "Investigation Report" in content
     assert "Find all external API calls" in content
     assert "HTTP call to stripe" in content
     assert "payments.py:42" in content

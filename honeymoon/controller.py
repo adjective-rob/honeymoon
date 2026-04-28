@@ -191,6 +191,7 @@ class Controller:
             auto_approve=self.auto_approve,
             surgical=self.surgical,
             test_command=self.test_command,
+            mission=self.mission,
         )
 
         try:

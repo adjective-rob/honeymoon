@@ -52,3 +52,4 @@ class RunContext:
     auto_approve: bool = False
     surgical: bool = False
     test_command: str | None = None
+    mission: Any = None  # honeymoon.mission.Mission

@@ -58,14 +58,32 @@ def write_report(
 
     # --- Build the report ---
     sections = []
+    finding_list = findings.get("findings", [])
 
     # Header
-    sections.append(f"# Investigation Report — {short_id}")
+    sections.append(f"# 🍯 Investigation Report — {short_id}")
     sections.append("")
-    sections.append(f"**Mission:** {mission_name}")
-    sections.append(f"**Objective:** {objective}")
-    sections.append(f"**Timestamp:** {timestamp}")
-    sections.append(f"**Run ID:** {run_id}")
+    sections.append("| Field | Value |")
+    sections.append("|-------|-------|")
+    sections.append(f"| **Mission** | {mission_name} |")
+    sections.append(f"| **Objective** | {objective} |")
+    sections.append(f"| **Timestamp** | {timestamp} |")
+    sections.append(f"| **Run ID** | `{run_id}` |")
+    sections.append(f"| **Findings** | {len(finding_list)} |")
+
+    # Risk matrix
+    severity_counts: dict[str, int] = {}
+    for f in finding_list:
+        sev = f.get("severity", "info").upper()
+        severity_counts[sev] = severity_counts.get(sev, 0) + 1
+    if severity_counts:
+        risk_parts = []
+        for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]:
+            if sev in severity_counts:
+                icon = {"CRITICAL": "🔴", "HIGH": "🟠", "MEDIUM": "🟡", "LOW": "🔵", "INFO": "⚪"}.get(sev, "⚪")
+                risk_parts.append(f"{icon} {severity_counts[sev]} {sev}")
+        sections.append(f"| **Risk Profile** | {' · '.join(risk_parts)} |")
+
     sections.append("")
     sections.append("---")
     sections.append("")
@@ -78,7 +96,6 @@ def write_report(
     sections.append("")
 
     # Findings
-    finding_list = findings.get("findings", [])
     if finding_list:
         sections.append("## Findings")
         sections.append("")
