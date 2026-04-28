@@ -314,10 +314,78 @@ function RunCard({run}) {
 // App
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Findings Tab — Investigation Reports
+// ---------------------------------------------------------------------------
+
+const SEV_COLORS = {critical:'#ef4444',high:'#f97316',medium:'#eab308',low:'#3b82f6',info:'#6b7280'};
+
+function FindingCard({finding, index}) {
+  const [open, setOpen] = useState(false);
+  const sev = (finding.severity||'info').toLowerCase();
+  const c = SEV_COLORS[sev]||'#6b7280';
+  return <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,marginBottom:8,overflow:'hidden'}}>
+    <div onClick={()=>setOpen(!open)} style={{padding:'12px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
+      <span style={{fontSize:12,fontWeight:700,color:c,minWidth:50,textTransform:'uppercase'}}>{sev}</span>
+      <span style={{fontSize:14,fontWeight:600,color:'#f3f4f6',flex:1}}>{finding.title||`Finding ${index}`}</span>
+      <span className="mono" style={{fontSize:11,color:'#6b7280'}}>{finding.confidence||'?'}</span>
+    </div>
+    {open && <div style={{padding:'0 16px 16px'}}>
+      {finding.evidence && <div style={{background:'rgba(0,0,0,0.5)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:6,padding:'10px 14px',marginBottom:8,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'#9ca3af',whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{finding.evidence}</div>}
+      {finding.analysis && <div style={{fontSize:13,color:'#d1d5db',lineHeight:1.6}}>{finding.analysis}</div>}
+    </div>}
+  </div>;
+}
+
+function ReportCard({report}) {
+  const [open, setOpen] = useState(false);
+  const findings = report.findings||[];
+  const sevCounts = {};
+  findings.forEach(f => { const s=(f.severity||'info').toLowerCase(); sevCounts[s]=(sevCounts[s]||0)+1; });
+  return <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,marginBottom:12,overflow:'hidden',transition:'border-color 0.2s'}}
+    onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.18)'}
+    onMouseLeave={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}>
+    <div onClick={()=>setOpen(!open)} style={{padding:'16px 20px',cursor:'pointer',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
+      <span className="mono" style={{fontSize:14,color:'#f3f4f6',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
+        <span style={{color:open?'#f59e0b':'#6b7280',transition:'transform 0.2s',display:'inline-block',transform:open?'rotate(90deg)':'rotate(0)'}}>&#x25b8;</span>
+        {report.id}
+      </span>
+      <span style={{fontSize:11,color:'#6b7280'}}>{report.mission}</span>
+      <div style={{display:'flex',gap:4}}>
+        {['critical','high','medium','low'].map(s => sevCounts[s] ? <span key={s} style={{padding:'1px 8px',borderRadius:3,fontSize:10,fontWeight:700,background:(SEV_COLORS[s]||'#6b7280')+'22',color:SEV_COLORS[s],border:'1px solid '+(SEV_COLORS[s]||'#6b7280')+'55'}}>{sevCounts[s]} {s.toUpperCase()}</span> : null)}
+      </div>
+      <span style={{fontSize:11,color:'#4b5563',marginLeft:'auto'}}>{report.signed ? '\uD83D\uDD0F signed' : ''}</span>
+    </div>
+    {open && <div style={{padding:'0 20px 20px',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
+      {report.summary && <div style={{padding:'12px 14px',marginTop:12,marginBottom:16,borderRadius:6,background:'rgba(245,158,11,0.05)',border:'1px solid rgba(245,158,11,0.15)',fontSize:13,color:'#fbbf24',lineHeight:1.5}}>{report.summary}</div>}
+      {findings.map((f,i) => <FindingCard key={i} finding={f} index={i+1}/>)}
+      {report.budget && <div style={{marginTop:12,display:'flex',gap:24,fontSize:12,color:'#6b7280'}}>
+        <span>Tokens: <span className="mono" style={{color:'#9ca3af'}}>{(report.budget.total_tokens||0).toLocaleString()}</span></span>
+        <span>Cost: <span className="mono" style={{color:'#9ca3af'}}>${(report.budget.estimated_cost||0).toFixed(4)}</span></span>
+      </div>}
+    </div>}
+  </div>;
+}
+
+function FindingsTab({reports}) {
+  if (!reports || reports.length === 0) return <div style={{padding:48,textAlign:'center',color:'#4b5563',border:'1px dashed rgba(255,255,255,0.08)',borderRadius:8}}>
+    <div style={{fontSize:32,marginBottom:12}}>&#x1F50D;</div>
+    <div style={{fontSize:14}}>No investigation reports yet. Run <span className="mono" style={{fontSize:12}}>honeymoon scan --repo .</span></div>
+  </div>;
+  const totalFindings = reports.reduce((sum,r) => sum + (r.finding_count||0), 0);
+  return <div>
+    <div style={{marginBottom:16,fontSize:13,color:'#6b7280'}}>{reports.length} reports, {totalFindings} total findings</div>
+    {reports.map(r => <ReportCard key={r.id} report={r}/>)}
+  </div>;
+}
+
+
 function App() {
   const [rawLines,setRawLines]=useState(null);
   const [filter, setFilter] = useState('');
   const [dragging, setDragging] = useState(false);
+  const [tab, setTab] = useState('attestation');
+  const [reports, setReports] = useState([]);
   const fileRef = useRef(null);
 
   const handleFile = (file) => {
@@ -331,6 +399,11 @@ function App() {
     };
     reader.readAsText(file);
   };
+
+  // Fetch reports on mount
+  React.useEffect(() => {
+    fetch('/api/reports').then(r=>r.ok?r.json():[]).then(setReports).catch(()=>{});
+  }, []);
 
   const events = useMemo(() => rawLines ? parseEvents(rawLines) : [], [rawLines]);
   const runs = useMemo(() => groupByRun(events), [events]);
@@ -372,6 +445,16 @@ function App() {
         </p>
       </div>
 
+      {/* Tab Bar */}
+      <div style={{display:'flex',gap:2,marginBottom:24}}>
+        {[{id:'attestation',label:'Attestation',icon:'\u26A1'},{id:'findings',label:'Findings',icon:'\uD83D\uDD0D'}].map(t =>
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'10px 20px',borderRadius:6,border:'1px solid '+(tab===t.id?'rgba(245,158,11,0.4)':'rgba(255,255,255,0.08)'),background:tab===t.id?'rgba(245,158,11,0.1)':'rgba(255,255,255,0.02)',color:tab===t.id?'#f59e0b':'#6b7280',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all 0.2s'}}>
+            {t.icon} {t.label} {t.id==='findings' && reports.length > 0 ? <span className="mono" style={{marginLeft:4,fontSize:11}}>({reports.length})</span> : null}
+          </button>
+        )}
+      </div>
+
+      {tab === 'attestation' && <>
       {/* Stats Bar */}
       <div style={{display:'flex',gap:1,marginBottom:24,borderRadius:6,overflow:'hidden',border:'1px solid rgba(255,255,255,0.06)'}}>
         {[
@@ -390,7 +473,7 @@ function App() {
 
       {/* Filter */}
       <div style={{marginBottom:20}}>
-        <input type="text" placeholder="Filter by task ID, objective, or status…" value={filter} onChange={e => setFilter(e.target.value)}
+        <input type="text" placeholder="Filter by task ID, objective, or status\u2026" value={filter} onChange={e => setFilter(e.target.value)}
           style={{width:'100%',padding:'10px 14px',background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:6,color:'#e5e7eb',fontSize:13,fontFamily:"'DM Sans',sans-serif",outline:'none'}}
           onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.4)'}
           onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}/>
@@ -399,10 +482,13 @@ function App() {
       {/* Runs */}
       {filteredRuns.length === 0 ?
         <div style={{padding:48,textAlign:'center',color:'#4b5563',border:'1px dashed rgba(255,255,255,0.08)',borderRadius:8}}>
-          <div style={{fontSize:32,marginBottom:12}}>{rawLines ? '📭' : '🐝'}</div>
+          <div style={{fontSize:32,marginBottom:12}}>{rawLines ? '\uD83D\uDCED' : '\uD83D\uDC1D'}</div>
           <div style={{fontSize:14}}>{rawLines ? 'No matching runs' : 'Drop audit.jsonl to view the hive\'s attestation trail'}</div>
         </div>
       : filteredRuns.map(run => <RunCard key={run.id} run={run}/>)}
+      </>}
+
+      {tab === 'findings' && <FindingsTab reports={reports}/>}
 
       {/* Footer */}
       <div style={{marginTop:40,paddingTop:20,borderTop:'1px solid rgba(255,255,255,0.04)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>

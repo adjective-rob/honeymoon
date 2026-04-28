@@ -6,18 +6,19 @@ Serves the attestation dashboard and auto-loads audit.jsonl from the repo's
 .honeymoon/logs/ directory. No drag-and-drop needed.
 
 Usage:
-    python3 honeymoon/reporting/serve.py --repo ~/Desktop/glitchlab-soapbox
+    python3 honeymoon/reporting/serve.py --repo ~/Desktop/honeymoon
     # Opens http://localhost:8080
 """
 
 import argparse
+import json
 import os
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
-    """Serves dashboard files + injects audit.jsonl as an API endpoint."""
+    """Serves dashboard files + injects audit.jsonl and reports as API endpoints."""
 
     repo_path: Path = Path(".")
     dashboard_dir: Path = Path(".")
@@ -25,6 +26,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/api/audit":
             self.serve_audit()
+        elif self.path == "/api/reports":
+            self.serve_reports()
+        elif self.path.startswith("/api/report/"):
+            self.serve_single_report(self.path.split("/api/report/")[1])
         elif self.path == "/" or self.path == "/index.html":
             self.serve_dashboard()
         else:
@@ -48,6 +53,50 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         self.wfile.write(audit_file.read_bytes())
+
+    def serve_reports(self):
+        """Return list of all investigation reports as JSON."""
+        reports_dir = self.repo_path / ".honeymoon" / "reports"
+        reports = []
+        if reports_dir.exists():
+            for json_file in sorted(reports_dir.glob("*.json"), reverse=True):
+                if json_file.stem.startswith("SPEC"):
+                    continue
+                try:
+                    data = json.loads(json_file.read_text())
+                    reports.append({
+                        "id": json_file.stem,
+                        "run_id": data.get("run_id", ""),
+                        "mission": data.get("mission", ""),
+                        "objective": data.get("objective", ""),
+                        "timestamp": data.get("timestamp", ""),
+                        "finding_count": len(data.get("findings", {}).get("findings", [])),
+                        "findings": data.get("findings", {}).get("findings", []),
+                        "summary": data.get("findings", {}).get("summary", ""),
+                        "verification": data.get("verification", {}),
+                        "budget": data.get("budget", {}),
+                        "signed": "signature" in data,
+                    })
+                except Exception:
+                    pass
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps(reports).encode())
+
+    def serve_single_report(self, report_id: str):
+        """Serve an HTML report file directly."""
+        html_file = self.repo_path / ".honeymoon" / "reports" / f"{report_id}.html"
+        if html_file.exists():
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(html_file.read_bytes())
+        else:
+            self.send_response(404)
+            self.end_headers()
 
     def serve_dashboard(self):
         dashboard_file = self.dashboard_dir / "index.html"

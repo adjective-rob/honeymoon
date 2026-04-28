@@ -1010,6 +1010,186 @@ def doctor():
         sys.exit(1)
 
 @app.command()
+def deep(
+    repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),
+    fix: bool = typer.Option(False, "--fix", help="Enable autonomous remediation (creates PRs)"),
+    open_report: bool = typer.Option(True, "--open/--no-open", help="Auto-open HTML report in browser"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
+):
+    """Deep scan — audit + investigate + SPEC.md. Add --fix for autonomous remediation."""
+    from honeymoon.auditor import Scanner
+    from honeymoon.mission import load_mission
+    from honeymoon.report import write_report, write_spec
+
+    _print_banner()
+    _configure_logging(verbose)
+
+    repo = repo.resolve()
+    if not repo.exists():
+        console.print(f"[red]Repository not found: {repo}[/]")
+        raise typer.Exit(1)
+
+    # Phase 1: Static audit
+    console.print("\n[bold cyan]Phase 1 · AUDIT[/] [dim]Static analysis...[/]")
+    scanner = Scanner(repo)
+    scan_result = scanner.scan()
+    console.print(
+        f"  [dim]{scan_result.files_scanned} files scanned, "
+        f"{len(scan_result.findings)} static findings[/]"
+    )
+
+    # Build focused objective from audit findings
+    audit_summary = _build_audit_context(scan_result)
+
+    # Phase 2: Investigation
+    console.print("\n[bold cyan]Phase 2 · INVESTIGATE[/] [dim]Agent-powered forensics...[/]")
+    config = load_config(repo)
+    mission = load_mission("investigate", repo)
+
+    objective = _auto_detect_objective(repo)
+    if audit_summary:
+        objective += f" Additionally, the static scanner found: {audit_summary}"
+
+    task = Task.from_interactive(objective)
+    AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
+
+    controller = Controller(
+        repo_path=repo,
+        config=config,
+        auto_approve=True,
+        mission=mission,
+    )
+
+    result = controller.run(task)
+
+    findings = result.get("implementation", {})
+    verification = result.get("security", {})
+    budget = result.get("budget", {})
+
+    # Write investigation report
+    report_path = write_report(
+        repo_path=repo,
+        run_id=result.get("run_id", task.task_id),
+        mission_name="deep-scan",
+        objective=objective,
+        findings=findings,
+        verification=verification,
+        budget=budget,
+    )
+
+    finding_list = findings.get("findings", [])
+    if finding_list:
+        _emit_prelude_decisions(repo, finding_list, objective)
+
+    # Phase 3: SPEC.md — remediation plan
+    console.print("\n[bold cyan]Phase 3 · SPEC[/] [dim]Remediation plan...[/]")
+    spec_path = write_spec(
+        repo_path=repo,
+        run_id=result.get("run_id", task.task_id),
+        investigation_findings=finding_list,
+        audit_findings=scan_result.findings,
+        verification=verification,
+    )
+
+    # Phase 4 (optional): Autonomous remediation
+    if fix:
+        console.print("\n[bold cyan]Phase 4 · FIX[/] [dim]Autonomous remediation...[/]")
+        _run_remediation(repo, finding_list, scan_result.findings, verbose)
+
+    # Summary
+    console.print("\n[bold green]🍯 Deep scan complete.[/]")
+    console.print(f"  [bold]Report:[/]    {report_path}")
+    console.print(f"  [bold]SPEC:[/]      {spec_path}")
+    console.print(f"  [bold]Findings:[/]  {len(finding_list)} investigation + {len(scan_result.findings)} static")
+    if finding_list:
+        for f in finding_list:
+            sev = f.get("severity", "info").upper()
+            sev_color = {"CRITICAL": "red", "HIGH": "red", "MEDIUM": "yellow", "LOW": "blue", "INFO": "dim"}.get(sev, "dim")
+            console.print(f"    [{sev_color}]{sev}[/] {f.get('title', '?')}")
+    console.print(f"  [bold]Cost:[/]     ${budget.get('estimated_cost', 0):.4f}")
+
+    html_path = report_path.with_suffix(".html")
+    if open_report and html_path.exists():
+        import webbrowser
+        webbrowser.open(f"file://{html_path}")
+
+
+def _build_audit_context(scan_result) -> str:
+    """Summarize audit findings into a focused context string for the investigator."""
+    if not scan_result.findings:
+        return ""
+
+    # Group by severity
+    by_sev: dict[str, list] = {}
+    for f in scan_result.findings:
+        by_sev.setdefault(f.severity, []).append(f)
+
+    parts = []
+    for sev in ["high", "medium", "low"]:
+        items = by_sev.get(sev, [])
+        if items:
+            sample = items[:3]
+            desc = "; ".join(f"{f.kind} in {f.file}:{f.line}" for f in sample)
+            if len(items) > 3:
+                desc += f" (+{len(items)-3} more)"
+            parts.append(f"{sev.upper()}: {desc}")
+
+    return " | ".join(parts)
+
+
+def _run_remediation(repo: Path, investigation_findings: list, audit_findings: list, verbose: bool) -> None:
+    """Generate task YAMLs from findings and run them through the pipeline."""
+    import yaml
+
+    tasks_dir = repo / ".honeymoon" / "tasks" / "queue"
+    tasks_dir.mkdir(parents=True, exist_ok=True)
+
+    # Only remediate high/medium investigation findings
+    actionable = [f for f in investigation_findings if f.get("severity") in ("critical", "high", "medium")]
+
+    if not actionable:
+        console.print("  [dim]No actionable findings to remediate.[/]")
+        return
+
+    written = []
+    for i, finding in enumerate(actionable[:5]):  # Cap at 5 tasks
+        task_id = f"fix-{finding.get('severity', 'med')}-{i+1}"
+        title = finding.get("title", f"Fix finding {i+1}")
+        evidence = finding.get("evidence", "")
+        analysis = finding.get("analysis", "")
+
+        task_data = {
+            "id": task_id,
+            "objective": f"Fix: {title}",
+            "constraints": [
+                "Do not break existing functionality",
+                "Run tests after changes to verify nothing is broken",
+                "Make the minimal change that addresses the finding",
+                f"Evidence: {evidence[:300]}" if evidence else None,
+                f"Analysis: {analysis[:300]}" if analysis else None,
+            ],
+            "acceptance": [
+                "The security finding is addressed",
+                "All existing tests still pass",
+                "No new warnings introduced",
+            ],
+            "risk": "medium",
+        }
+        # Remove None constraints
+        task_data["constraints"] = [c for c in task_data["constraints"] if c]
+
+        task_path = tasks_dir / f"{task_id}.yaml"
+        task_path.write_text(yaml.dump(task_data, default_flow_style=False, sort_keys=False))
+        written.append(task_path)
+
+    console.print(f"  [dim]Generated {len(written)} remediation tasks in {tasks_dir}[/]")
+    for p in written:
+        console.print(f"    [dim]{p.name}[/]")
+
+    console.print("  [dim]Run: honeymoon batch --repo . to execute remediation[/]")
+
+
+@app.command()
 def scan(
     repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),
     objective: Optional[str] = typer.Option(None, "--objective", "-o", help="What to investigate (auto-detected if omitted)"),
