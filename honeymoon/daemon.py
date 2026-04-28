@@ -33,7 +33,7 @@ class HoneymoonDaemon:
         self._event_buffer: list[dict] = []
 
         # Subscribe to the global EventBus
-        bus.subscribe("*", self._on_event)
+        bus.subscribe(self._on_event)
 
     def _on_event(self, event: Any) -> None:
         """Called by EventBus for every event. Buffer + broadcast."""
