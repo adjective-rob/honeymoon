@@ -212,7 +212,7 @@ function CommandBar({ onCommand, running }: { onCommand: (cmd: string) => void; 
             disabled={!!running}
             whileHover={running ? {} : { y: -2 }}
             whileTap={running ? {} : { scale: 0.98 }}
-            className="relative px-4 py-3 rounded-xl text-left disabled:opacity-40 transition-all overflow-hidden"
+            className="relative px-4 py-3 rounded-xl text-left disabled:opacity-40 transition-all overflow-hidden cursor-pointer disabled:cursor-not-allowed"
             style={{
               background: isRunning ? "rgba(245,158,11,0.08)" : "rgba(255,255,255,0.02)",
               border: `1px solid ${isRunning ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.06)"}`,
