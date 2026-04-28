@@ -60,13 +60,20 @@ def pre_task_git_fetch(repo_path: Path) -> None:
     """Best-effort fetch to ensure planning is against recent `origin/main`.
 
     Soft-fails (warn + continue) to avoid breaking offline/CI runs.
+    Skips entirely if no remote is configured (local-only repos).
     """
     if not is_git_repo(repo_path):
         logger.debug(f"[GIT] Skipping fetch: not a git repo: {repo_path}")
         return
 
+    # Skip fetch for local-only repos (no remote configured)
+    remotes = run_git(["remote"], cwd=repo_path, timeout=5)
+    if not (remotes.stdout or "").strip():
+        logger.debug("[GIT] No remote configured. Skipping fetch.")
+        return
+
     try:
-        res = run_git(["fetch", "origin", "main"], cwd=repo_path, timeout=20)
+        res = run_git(["fetch", "origin"], cwd=repo_path, timeout=20)
         if res.returncode != 0:
             stderr = (res.stderr or "").strip()
             stdout = (res.stdout or "").strip()

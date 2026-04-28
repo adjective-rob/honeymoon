@@ -33,11 +33,16 @@ class Workspace:
     def path(self) -> Path:
         return self.worktree_path
 
-    def create(self, base_branch: str = "main") -> Path:
+    def create(self, base_branch: str | None = None) -> Path:
         """
-        Creates a transactional sandbox. 
+        Creates a transactional sandbox.
         If a stale worktree or branch exists, it resets them.
+        Auto-detects the current branch if base_branch is not specified.
         """
+        # Auto-detect the current branch name
+        if base_branch is None:
+            base_branch = self._detect_branch()
+
         # 1. Cleanup stale state if it exists from a crashed previous run
         if self.worktree_path.exists() or self._branch_exists(self.branch_name):
             logger.warning(f"[WORKSPACE] Found stale state for {self.task_id}. Resetting...")
@@ -47,7 +52,7 @@ class Workspace:
         self.worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
         # 3. Transactional Creation: Create branch and worktree in one shot
-        # We use -B to force create/reset the branch to the base_branch (main)
+        # We use -B to force create/reset the branch to the base_branch
         try:
             # -B creates or resets the branch to the start-point
             self._git("worktree", "add", "-B", self.branch_name, str(self.worktree_path), base_branch)
@@ -57,6 +62,16 @@ class Workspace:
             raise HiveError(f"Failed to create isolated worktree: {e}")
 
         return self.worktree_path
+
+    def _detect_branch(self) -> str:
+        """Detect the current branch name (handles main, master, or whatever)."""
+        try:
+            branch = self._git("rev-parse", "--abbrev-ref", "HEAD", capture=True).strip()
+            if branch and branch != "HEAD":
+                return branch
+        except Exception:
+            pass
+        return "main"
 
     def diff_full(self) -> str:
         """Get the full unified diff of all changes in the worktree."""
@@ -97,12 +112,24 @@ class Workspace:
         self._worktree_git(*cmd)
         logger.info(f"[WORKSPACE] Pushed (force={force}): {self.branch_name}")
 
-    def rebase(self, target: str = "origin/main", auto_abort: bool = True) -> bool:
+    def rebase(self, target: str | None = None, auto_abort: bool = True) -> bool:
         """
         Safely rebase the worktree branch onto the target branch.
+        Skips if no remote exists (local-only repos).
         """
         try:
-            self._git("fetch", "origin", "main", check=False)
+            # Check if remote exists
+            remotes = self._git("remote", capture=True).strip()
+            if not remotes:
+                logger.info("[WORKSPACE] No remote configured. Skipping rebase.")
+                return True
+
+            # Auto-detect target branch
+            if target is None:
+                base = self._detect_branch()
+                target = f"origin/{base}"
+
+            self._git("fetch", "origin", capture=True, check=False)
             logger.info(f"[WORKSPACE] Rebasing {self.branch_name} onto {target}...")
             
             result = subprocess.run(

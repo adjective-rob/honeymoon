@@ -12,7 +12,7 @@ import json
 from typing import Any, Literal
 
 from loguru import logger
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from honeymoon.agents import AgentContext, BaseAgent
 from honeymoon.router import RouterResponse
@@ -47,11 +47,27 @@ class ExecutionPlan(BaseModel):
     requires_core_change: bool
     risk_level: Literal["low", "medium", "high"]
     risk_notes: str
-    test_strategy: list[str]
+    test_strategy: list[str] = Field(default_factory=list)
     estimated_complexity: Literal["trivial", "small", "medium", "large"]
     dependencies_affected: bool
     public_api_changed: bool
     self_review_notes: str
+
+    @field_validator("test_strategy", mode="before")
+    @classmethod
+    def coerce_test_strategy(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            return [v] if v else []
+        if isinstance(v, list):
+            return [str(i) for i in v]
+        return []
+
+    @field_validator("dependencies_affected", mode="before")
+    @classmethod
+    def coerce_dependencies_affected(cls, v: Any) -> bool:
+        if isinstance(v, list):
+            return len(v) > 0
+        return bool(v)
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +176,7 @@ Rules:
         workspace_dir = Path(context.working_dir)
         symbol_index = context.extra.get("symbol_index")
 
-        max_steps = 10
+        max_steps = 5
 
         for step in range(max_steps):
             step_kwargs = dict(kwargs)
@@ -182,6 +198,7 @@ Rules:
                 role=self.role,
                 messages=messages,
                 tools=PLANNER_TOOLS,
+                max_tokens=8192,
                 **step_kwargs
             )
 

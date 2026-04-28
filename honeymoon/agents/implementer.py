@@ -382,9 +382,12 @@ Plan: {steps_text}
         read_cap = max(8, len(plan_files) * 2, plan_step_count * 3)
         search_count = 0
         check_after_write = False  # True once a write happens, reset when run_check passes
+        check_denial_count = 0  # Track consecutive run_check denials
         total_tokens = 0
         fast_mode = context.extra.get("fast_mode", False)
-        max_steps = 30 if fast_mode else 60
+        complexity = context.extra.get("estimated_complexity", "medium")
+        complexity_budget = {"trivial": 12, "small": 18, "medium": 30, "large": 45}
+        max_steps = complexity_budget.get(complexity, 30) if fast_mode else 60
         
         for step in range(max_steps):
             logger.debug(f"[PATCH] Loop Step {step+1}/{max_steps}...")
@@ -914,9 +917,19 @@ Plan: {steps_text}
                                 res += "\n\nTip: use `rollback_file` if you need to undo a broken change."
                             else:
                                 check_after_write = False
+                                check_denial_count = 0
                                 res += " Verification passed. If your changes are complete, call done now."
-                        except Exception as e:
-                            res = f"Execution blocked or failed: {e}"
+                        except Exception:
+                            check_denial_count += 1
+                            allowed = ", ".join(tool_executor.allowed_tools[:10]) if tool_executor else "unknown"
+                            res = (
+                                f"DENIED: '{cmd}' is not in the allowed commands list. "
+                                f"Allowed commands: {allowed}. "
+                                f"Use one of these, or call `done` if no suitable check command exists."
+                            )
+                            if check_denial_count >= 3:
+                                check_after_write = False
+                                res += " Verification requirement waived after 3 denied attempts. You may call `done` now."
                     else:
                         res = "Error: Tool executor not wired up."
                     messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})

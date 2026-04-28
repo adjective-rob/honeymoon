@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GLITCHLAB Attestation Dashboard</title>
+<title>HONEYMOON Attestation Dashboard</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -12,6 +12,7 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
   ::selection { background: rgba(245,158,11,0.3); }
+  .honeycomb-bg { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23f59e0b' fill-opacity='0.03'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
   input::placeholder { color: #4b5563; }
   .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
 </style>
@@ -57,7 +58,7 @@ function groupByRun(events) {
 // ---------------------------------------------------------------------------
 
 const AGENT_COLORS = {
-  system:'#6b7280', controller:'#8b5cf6', planner:'#f59e0b', implementer:'#3b82f6',
+  system:'#78716c', controller:'#d97706', planner:'#f59e0b', implementer:'#eab308',
   debugger:'#ef4444', security:'#10b981', release:'#06b6d4', archivist:'#a855f7',
   testgen:'#14b8a6',
 };
@@ -218,14 +219,14 @@ function EventRow({ev, isLast}) {
         <span className="mono" style={{fontSize:10,color:'#4b5563',minWidth:56}}>{formatTime(ev.timestamp)}</span>
         <AgentBadge agent={ev.agent_id}/>
         <EventTypeBadge type={ev.event_type}/>
-        {summary && <span className="mono" style={{fontSize:11,color:isError?'#fca5a5':'#6b7280',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:350}}>{summary}</span>}
+        {summary && <span className="mono" style={{fontSize:11,color:isError?'#fca5a5':'#9ca3af',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:350}}>{summary}</span>}
         <span style={{marginLeft:'auto'}}><SignatureBadge sig={ev._envelope?.signature}/></span>
       </div>
-      {expanded && <div style={{marginTop:8,padding:12,borderRadius:4,background:'rgba(0,0,0,0.4)',border:'1px solid rgba(255,255,255,0.06)',fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:'#9ca3af',maxHeight:300,overflow:'auto',whiteSpace:'pre-wrap',wordBreak:'break-all'}}>
-        <div style={{color:'#4b5563'}}>{JSON.stringify(ev.payload, null, 2)}</div>
-        <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid rgba(255,255,255,0.06)'}}>
-          <div style={{color:'#374151',marginBottom:4,fontSize:10,textTransform:'uppercase',letterSpacing:'0.1em'}}>envelope</div>
-          <div style={{color:'#4b5563'}}>label: {ev._envelope?.label}{'\n'}signer: {ev._envelope?.signer}{'\n'}sig: {ev._envelope?.signature}</div>
+      {expanded && <div style={{marginTop:8,padding:12,borderRadius:4,background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.1)',fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:'#d1d5db',maxHeight:300,overflow:'auto',whiteSpace:'pre-wrap',wordBreak:'break-all'}}>
+        <div style={{color:'#9ca3af'}}>{JSON.stringify(ev.payload, null, 2)}</div>
+        <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid rgba(255,255,255,0.1)'}}>
+          <div style={{color:'#6b7280',marginBottom:4,fontSize:10,textTransform:'uppercase',letterSpacing:'0.1em'}}>envelope</div>
+          <div style={{color:'#9ca3af'}}>label: {ev._envelope?.label}{'\n'}signer: {ev._envelope?.signer}{'\n'}sig: {ev._envelope?.signature}</div>
         </div>
       </div>}
     </div>
@@ -249,9 +250,9 @@ function RunCard({run}) {
   const relAssess = run.events.find(e => e.event_type === 'release_assessment');
   const testResult = run.events.find(e => e.event_type === 'tests_passed' || e.event_type === 'tests_failed');
 
-  return <div style={{background:'rgba(255,255,255,0.02)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:8,overflow:'hidden',marginBottom:12,transition:'border-color 0.2s'}}
-    onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.12)'}
-    onMouseLeave={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.06)'}>
+  return <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,overflow:'hidden',marginBottom:12,transition:'border-color 0.2s'}}
+    onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.18)'}
+    onMouseLeave={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}>
 
     {/* Header */}
     <div onClick={()=>setOpen(!open)} style={{padding:'16px 20px',cursor:'pointer',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',borderBottom:open?'1px solid rgba(255,255,255,0.06)':'none'}}>
@@ -261,8 +262,8 @@ function RunCard({run}) {
       </span>
       <StatusBadge status={run.status}/>
       <span style={{fontSize:11,color:'#6b7280'}}>{formatDate(run.startTime)} {formatTime(run.startTime)}</span>
-      <span style={{fontSize:11,color:'#4b5563'}}>
-        {dur} · {actionCount} actions · {pipelineEvents.length} pipeline · {errorCount > 0 ? <span style={{color:'#ef4444'}}>{errorCount} errors</span> : <span style={{color:'#6b7280'}}>0 errors</span>}
+      <span style={{fontSize:11,color:'#9ca3af'}}>
+        {dur} · {actionCount} actions · {pipelineEvents.length} pipeline · {errorCount > 0 ? <span style={{color:'#ef4444'}}>{errorCount} errors</span> : <span style={{color:'#9ca3af'}}>0 errors</span>}
       </span>
       <div style={{marginLeft:'auto',display:'flex',gap:4}}>
         {agents.filter(a => a !== 'system').map(a => <AgentBadge key={a} agent={a}/>)}
@@ -344,14 +345,14 @@ function App() {
   const signers = [...new Set(events.map(e => e._envelope?.signer).filter(Boolean))];
   const signedCount = events.filter(e => e._envelope?.signature).length;
 
-  return <div
+  return <div className="honeycomb-bg"
     onDragOver={e => { e.preventDefault(); setDragging(true); }}
     onDragLeave={() => setDragging(false)}
     onDrop={e => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
     style={{minHeight:'100vh',position:'relative'}}>
 
     {dragging && <div style={{position:'fixed',inset:0,zIndex:999,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',border:'3px dashed rgba(245,158,11,0.5)'}}>
-      <div style={{fontSize:24,color:'#f59e0b',fontWeight:700}}>Drop audit.jsonl</div>
+      <div style={{fontSize:24,color:'#f59e0b',fontWeight:700}}>&#x1F41D; Drop audit.jsonl</div>
     </div>}
 
     <input ref={fileRef} type="file" accept=".jsonl,.json,.log" style={{display:'none'}} onChange={e => { if (e.target.files[0]) handleFile(e.target.files[0]); }}/>
@@ -361,7 +362,7 @@ function App() {
       <div style={{marginBottom:32}}>
         <div style={{display:'flex',alignItems:'baseline',gap:12,marginBottom:4}}>
           <h1 className="mono" style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',color:'#f3f4f6'}}>
-            <span style={{color:'#f59e0b'}}>⚡</span> GLITCHLAB
+            <span style={{fontSize:26,marginRight:2}}>&#x1F36F;</span> HONEYMOON
           </h1>
           <span style={{fontSize:13,color:'#6b7280',fontWeight:500}}>Attestation Dashboard</span>
         </div>
@@ -398,14 +399,14 @@ function App() {
       {/* Runs */}
       {filteredRuns.length === 0 ?
         <div style={{padding:48,textAlign:'center',color:'#4b5563',border:'1px dashed rgba(255,255,255,0.08)',borderRadius:8}}>
-          <div style={{fontSize:32,marginBottom:12}}>{rawLines ? '📭' : '📂'}</div>
-          <div style={{fontSize:14}}>{rawLines ? 'No matching runs' : 'Drop audit.jsonl to view attestation data'}</div>
+          <div style={{fontSize:32,marginBottom:12}}>{rawLines ? '📭' : '🐝'}</div>
+          <div style={{fontSize:14}}>{rawLines ? 'No matching runs' : 'Drop audit.jsonl to view the hive\'s attestation trail'}</div>
         </div>
       : filteredRuns.map(run => <RunCard key={run.id} run={run}/>)}
 
       {/* Footer */}
       <div style={{marginTop:40,paddingTop:20,borderTop:'1px solid rgba(255,255,255,0.04)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <span style={{fontSize:11,color:'#374151'}}>GLITCHLAB Attestation Dashboard · Zephyr SBOF</span>
+        <span style={{fontSize:11,color:'#374151'}}>HONEYMOON Attestation Dashboard · Zephyr SBOF</span>
         <span style={{fontSize:11,color:'#374151'}}>Adjective LLC</span>
       </div>
     </div>

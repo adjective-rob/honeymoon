@@ -65,10 +65,12 @@ def check_repo_clean(repo_path: Path) -> None:
         text=True,
     ).stdout
 
-    # Filter out changes that are ONLY inside .honeymoon/ (logs, tasks, etc.)
+    # Filter out changes inside .honeymoon/ and .context/ transient files
     dirty_files = [
         line for line in status.splitlines()
         if not line[3:].startswith(".honeymoon/")
+        and not line[3:].startswith(".context/session.json")
+        and not line[3:].startswith(".context/.prelude/")
     ]
 
     if dirty_files:
@@ -199,7 +201,7 @@ def finalize(
 
     # Rebase Before PR
     if getattr(ctx.config, "automation", None) and getattr(ctx.config.automation, "rebase_before_pr", False):
-        console.print("[dim]🔄 Rebasing onto origin/main to prevent conflicts...[/]")
+        console.print("[dim]🔄 Rebasing to prevent conflicts...[/]")
 
         if not ctx.workspace.rebase(auto_abort=False):
             resolved = False

@@ -380,7 +380,7 @@ risk: low
 
     # Add to .gitignore
     gitignore = repo / ".gitignore"
-    ignore_entries = [".honeymoon/worktrees/", ".honeymoon/tasks/", ".honeymoon/logs/", ".honeymoon/keys/"]
+    ignore_entries = [".honeymoon/worktrees/", ".honeymoon/tasks/", ".honeymoon/logs/", ".honeymoon/keys/", ".context/session.json", ".context/.prelude/"]
     if gitignore.exists():
         content = gitignore.read_text()
         additions = [e for e in ignore_entries if e not in content]
