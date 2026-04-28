@@ -987,6 +987,23 @@ def swarm(
 
 
 @app.command()
+def serve(
+    repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),
+    port: int = typer.Option(4200, "--port", "-p", help="WebSocket port"),
+):
+    """Start the dashboard daemon — streams live events to the Next.js dashboard."""
+    from honeymoon.daemon import HoneymoonDaemon
+
+    repo = repo.resolve()
+    if not repo.exists():
+        console.print(f"[red]Repository not found: {repo}[/]")
+        raise typer.Exit(1)
+
+    daemon = HoneymoonDaemon(repo_path=repo, port=port)
+    daemon.run()
+
+
+@app.command()
 def doctor():
     from honeymoon.registry import AGENT_REGISTRY
     from honeymoon.step_handlers import STEP_HANDLERS
