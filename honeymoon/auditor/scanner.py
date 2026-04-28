@@ -376,6 +376,7 @@ class Scanner:
                 description=f"File is {len(lines)} lines long. Consider breaking it down.",
                 severity="medium"
             ))
+        return findings
 
     # -----------------------------------------------------------------------
     # Check: Dependency Vulnerabilities
