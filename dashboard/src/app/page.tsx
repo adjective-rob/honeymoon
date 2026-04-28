@@ -414,7 +414,7 @@ function ReportCard({ report }: { report: Report }) {
 
               {/* Open HTML report link */}
               <a
-                href={`http://127.0.0.1:4200/api/report/${report.id}`}
+                href={`http://127.0.0.1:4201/api/report/${report.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-[11px] font-medium hover:underline transition-colors"

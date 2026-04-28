@@ -236,13 +236,74 @@ class HoneymoonDaemon:
         finally:
             self._running_command = None
 
+    def _start_http_server(self) -> None:
+        """Start an HTTP server for serving reports and API endpoints."""
+        from http.server import HTTPServer, BaseHTTPRequestHandler
+
+        repo = self.repo_path
+
+        class ReportHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path.startswith("/api/report/"):
+                    report_id = self.path.split("/api/report/")[1].rstrip("/")
+                    html_file = repo / ".honeymoon" / "reports" / f"{report_id}.html"
+                    if html_file.exists():
+                        content = html_file.read_bytes()
+                        self.send_response(200)
+                        self.send_header("Content-Type", "text/html; charset=utf-8")
+                        self.send_header("Content-Length", str(len(content)))
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.end_headers()
+                        self.wfile.write(content)
+                    else:
+                        self.send_response(404)
+                        self.end_headers()
+                        self.wfile.write(b"Report not found")
+                elif self.path == "/api/reports":
+                    reports_json = json.dumps(self._get_reports()).encode()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header("Access-Control-Allow-Origin", "*")
+                    self.end_headers()
+                    self.wfile.write(reports_json)
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+
+            def _get_reports(self):
+                reports_dir = repo / ".honeymoon" / "reports"
+                result = []
+                if not reports_dir.exists():
+                    return result
+                for f in sorted(reports_dir.glob("*.json"), reverse=True):
+                    if f.stem.startswith("SPEC"):
+                        continue
+                    try:
+                        json.loads(f.read_text())  # validate JSON
+                        result.append({"id": f.stem, "has_html": (reports_dir / f"{f.stem}.html").exists()})
+                    except Exception:
+                        pass
+                return result
+
+            def log_message(self, format, *args):
+                pass  # Suppress HTTP logs
+
+        http_port = self.port + 1
+        server = HTTPServer(("127.0.0.1", http_port), ReportHandler)
+        logger.info(f"[DAEMON] HTTP server on http://127.0.0.1:{http_port}")
+        server.serve_forever()
+
     def run(self) -> None:
-        """Start the WebSocket server."""
+        """Start the WebSocket + HTTP servers."""
         try:
             import websockets
         except ImportError:
             print("Install websockets: pip install websockets")
             return
+
+        # Start HTTP server in background thread for serving reports
+        http_thread = threading.Thread(target=self._start_http_server, daemon=True)
+        http_thread.start()
 
         async def serve():
             self._loop = asyncio.get_event_loop()
@@ -251,6 +312,7 @@ class HoneymoonDaemon:
                 print("\n\U0001f36f HONEYMOON Dashboard Daemon")
                 print(f"   Repo:      {self.repo_path}")
                 print(f"   WebSocket: ws://127.0.0.1:{self.port}")
+                print(f"   Reports:   http://127.0.0.1:{self.port + 1}")
                 print("   Dashboard: cd dashboard && pnpm dev")
                 print("   Press Ctrl+C to stop.\n")
                 await asyncio.Future()

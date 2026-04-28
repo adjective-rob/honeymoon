@@ -238,6 +238,96 @@ def write_report(
     return report_path
 
 
+def _severity_svg(severity: str) -> str:
+    """Return an inline SVG icon for a severity level."""
+    icons = {
+        "critical": (
+            '<span class="icon"><svg width="14" height="14" viewBox="0 0 14 14">'
+            '<circle cx="7" cy="7" r="6" fill="#ef4444"/>'
+            '<text x="7" y="7" text-anchor="middle" dominant-baseline="central"'
+            ' font-size="9" font-weight="700" fill="#fff">!</text>'
+            '</svg></span>'
+        ),
+        "high": (
+            '<span class="icon"><svg width="14" height="14" viewBox="0 0 14 14">'
+            '<polygon points="7,1 13,13 1,13" fill="#f97316"/>'
+            '</svg></span>'
+        ),
+        "medium": (
+            '<span class="icon"><svg width="14" height="14" viewBox="0 0 14 14">'
+            '<polygon points="7,1 13,7 7,13 1,7" fill="#eab308"/>'
+            '</svg></span>'
+        ),
+        "low": (
+            '<span class="icon"><svg width="14" height="14" viewBox="0 0 14 14">'
+            '<circle cx="7" cy="7" r="6" fill="none" stroke="#3b82f6" stroke-width="1.5"/>'
+            '<text x="7" y="7" text-anchor="middle" dominant-baseline="central"'
+            ' font-size="8" font-weight="700" fill="#3b82f6">i</text>'
+            '</svg></span>'
+        ),
+        "info": (
+            '<span class="icon"><svg width="14" height="14" viewBox="0 0 14 14">'
+            '<circle cx="7" cy="7" r="5" fill="none" stroke="#6b7280" stroke-width="1.5"/>'
+            '</svg></span>'
+        ),
+    }
+    return icons.get(severity.lower(), icons["info"])
+
+
+def _verdict_svg(verdict: str) -> str:
+    """Return an inline SVG icon for a verification verdict."""
+    icons = {
+        "confirmed": (
+            '<svg width="20" height="20" viewBox="0 0 20 20">'
+            '<circle cx="10" cy="10" r="9" fill="none" stroke="#10b981" stroke-width="1.5"/>'
+            '<polyline points="6,10 9,13 14,7" fill="none" stroke="#10b981"'
+            ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
+            '</svg>'
+        ),
+        "partial": (
+            '<svg width="20" height="20" viewBox="0 0 20 20">'
+            '<polygon points="10,2 19,18 1,18" fill="none" stroke="#eab308" stroke-width="1.5"/>'
+            '<text x="10" y="14" text-anchor="middle" font-size="11"'
+            ' font-weight="700" fill="#eab308">!</text>'
+            '</svg>'
+        ),
+        "disputed": (
+            '<svg width="20" height="20" viewBox="0 0 20 20">'
+            '<circle cx="10" cy="10" r="9" fill="none" stroke="#ef4444" stroke-width="1.5"/>'
+            '<line x1="6" y1="6" x2="14" y2="14" stroke="#ef4444"'
+            ' stroke-width="2" stroke-linecap="round"/>'
+            '<line x1="14" y1="6" x2="6" y2="14" stroke="#ef4444"'
+            ' stroke-width="2" stroke-linecap="round"/>'
+            '</svg>'
+        ),
+    }
+    return icons.get(verdict, icons.get("partial", ""))
+
+
+def _shield_svg() -> str:
+    """Return an inline SVG shield icon for the attestation section."""
+    return (
+        '<span class="icon"><svg width="16" height="16" viewBox="0 0 16 16">'
+        '<path d="M8,1 L14,3.5 L14,7.5 C14,11 11,13.5 8,15 C5,13.5 2,11 2,7.5'
+        ' L2,3.5 Z" fill="none" stroke="#10b981" stroke-width="1.2"/>'
+        '<polyline points="5.5,8 7.5,10 10.5,6" fill="none" stroke="#6ee7b7"'
+        ' stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+        '</svg></span>'
+    )
+
+
+def _honeycomb_svg() -> str:
+    """Return an inline SVG honeycomb icon for the header."""
+    return (
+        '<span class="icon"><svg width="22" height="22" viewBox="0 0 24 24"'
+        ' fill="none" stroke="#fff" stroke-width="1.5">'
+        '<polygon points="12,2 20,7 20,17 12,22 4,17 4,7"/>'
+        '<polygon points="12,7 16,9.5 16,14.5 12,17 8,14.5 8,9.5"'
+        ' fill="rgba(255,255,255,0.15)"/>'
+        '</svg></span>'
+    )
+
+
 def _write_html_report(
     path: Path,
     *,
@@ -269,7 +359,12 @@ def _write_html_report(
     risk_pills = ""
     for sev in ["critical", "high", "medium", "low", "info"]:
         if sev in sev_counts:
-            risk_pills += f'<span class="risk-pill risk-{sev}">{sev_counts[sev]} {sev.upper()}</span>'
+            icon = _severity_svg(sev)
+            risk_pills += (
+                f'<span class="risk-pill risk-{sev}">'
+                f'{icon} {sev_counts[sev]} {sev.upper()}'
+                f'</span>'
+            )
 
     # Build findings HTML
     findings_html = ""
@@ -277,7 +372,7 @@ def _write_html_report(
         sev = f.get("severity", "info").lower()
         conf = f.get("confidence", "medium")
         sev_class = f"risk-{sev}"
-        icon = {"critical": "\U0001f534", "high": "\U0001f7e0", "medium": "\U0001f7e1", "low": "\U0001f535", "info": "\u26aa"}.get(sev, "\u26aa")
+        sev_icon = _severity_svg(sev)
 
         evidence_html = ""
         if f.get("evidence"):
@@ -286,15 +381,17 @@ def _write_html_report(
 
         analysis_html = ""
         if f.get("analysis"):
-            analysis_html = f'''<div class="analysis-label">Analysis</div>
-<div class="analysis">{f["analysis"]}</div>'''
+            analysis_html = (
+                f'<div class="analysis-label">Analysis</div>\n'
+                f'<div class="analysis">{f["analysis"]}</div>'
+            )
 
-        findings_html += f'''<div class="finding">
+        findings_html += f'''<div class="finding sev-{sev}">
   <div class="finding-header">
-    <span class="finding-number">{icon}</span>
+    <span class="finding-number">{i}</span>
     <span class="finding-title">{f.get("title", f"Finding {i}")}</span>
     <div class="finding-badges">
-      <span class="badge badge-severity {sev_class}">{sev.upper()}</span>
+      <span class="badge badge-severity {sev_class}">{sev_icon} {sev.upper()}</span>
       <span class="badge badge-confidence">{conf}</span>
     </div>
   </div>
@@ -316,13 +413,18 @@ def _write_html_report(
         verdict_map = {"pass": "confirmed", "warn": "partial", "block": "disputed"}
         verdict = verdict_map.get(verdict, verdict)
         v_class = f"verdict-{verdict}" if verdict in ("confirmed", "partial", "disputed") else ""
-        v_icon = {"confirmed": "\u2705", "partial": "\u26a0\ufe0f", "disputed": "\u274c"}.get(verdict, "\u2753")
+        v_icon = _verdict_svg(verdict)
 
         v_summary = verification.get("summary", "")
         v_issues = ""
         for issue in verification.get("issues", []):
             if issue.get("description") and issue.get("file") != "system":
-                v_issues += f'<div class="verifier-issue"><strong>{issue.get("severity", "info").upper()}</strong> [{issue.get("file", "?")}] {issue["description"]}</div>'
+                v_issues += (
+                    f'<div class="verifier-issue">'
+                    f'<strong>{issue.get("severity", "info").upper()}</strong>'
+                    f' [{issue.get("file", "?")}] {issue["description"]}'
+                    f'</div>'
+                )
 
         verification_html = f'''<div class="verdict-box {v_class}">
   <span class="verdict-icon">{v_icon}</span>
@@ -343,19 +445,28 @@ def _write_html_report(
 </div>'''
 
     # Build attestation HTML
+    shield = _shield_svg()
     if signature and public_key:
         attestation_html = f'''<div class="attestation">
-  <div class="attestation-title">\U0001f50f Ed25519 Signed</div>
-  <div class="attestation-field"><span>Public Key:</span> <code>{public_key}</code></div>
+  <div class="attestation-title">{shield} Ed25519 Signed</div>
+  <div class="attestation-fields">
+    <div class="attestation-field"><span>Public Key:</span> <code>{public_key}</code></div>
+  </div>
   <div class="attestation-sig">{signature}</div>
 </div>'''
     else:
-        attestation_html = '<div style="color:#6b7280;font-size:13px;">Unsigned &mdash; run <code>honeymoon init</code> to enable Ed25519 signing.</div>'
+        attestation_html = (
+            '<div class="attestation-unsigned">'
+            'Unsigned &mdash; run <code>honeymoon init</code> to enable Ed25519 signing.'
+            '</div>'
+        )
+
+    honeycomb_icon = _honeycomb_svg()
 
     # Assemble
     content = f'''
-  <div class="header">
-    <div class="logo">\U0001f36f HONEYMOON</div>
+  <div class="header-bar">
+    <div class="logo">{honeycomb_icon} HONEYMOON</div>
     <div class="subtitle">Investigation Report &middot; {short_id}</div>
   </div>
 
