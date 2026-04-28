@@ -7,9 +7,10 @@ import {
   Play, Loader2, CheckCircle2, AlertTriangle, XCircle,
   ChevronRight, Lock, FileSearch, Zap, Activity,
   TrendingUp, TrendingDown, Minus, ScrollText,
+  ExternalLink, Clock, DollarSign, FileCheck, ClipboardList,
 } from "lucide-react";
 import { socket } from "@/lib/ws";
-import type { DaemonState, LedgerEntry, Finding } from "@/lib/types";
+import type { DaemonState, LedgerEntry, Finding, Report } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Severity + Agent config
@@ -296,6 +297,165 @@ function Stat({ label, value, sub }: { label: string; value: string | number; su
 }
 
 // ---------------------------------------------------------------------------
+// Mission color map
+// ---------------------------------------------------------------------------
+const MISSION_COLORS: Record<string, { color: string; bg: string; border: string }> = {
+  investigate: { color: "#3b82f6", bg: "rgba(59,130,246,0.12)", border: "rgba(59,130,246,0.3)" },
+  bulk:        { color: "#a855f7", bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.3)" },
+  monitor:     { color: "#10b981", bg: "rgba(16,185,129,0.12)", border: "rgba(16,185,129,0.3)" },
+  scan:        { color: "#eab308", bg: "rgba(234,179,8,0.12)",  border: "rgba(234,179,8,0.3)"  },
+  simulate:    { color: "#ef4444", bg: "rgba(239,68,68,0.12)",  border: "rgba(239,68,68,0.3)"  },
+  harden:      { color: "#06b6d4", bg: "rgba(6,182,212,0.12)",  border: "rgba(6,182,212,0.3)"  },
+  deep:        { color: "#f97316", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.3)" },
+};
+
+const DEFAULT_MISSION_STYLE = { color: "#6b7280", bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.1)" };
+
+// ---------------------------------------------------------------------------
+// Report card
+// ---------------------------------------------------------------------------
+function ReportCard({ report }: { report: Report }) {
+  const [open, setOpen] = useState(false);
+  const style = MISSION_COLORS[report.mission] || DEFAULT_MISSION_STYLE;
+  const ts = new Date(report.timestamp);
+  const timeStr = ts.toLocaleString(undefined, {
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+  });
+  const cost = report.budget?.total_cost != null
+    ? `$${Number(report.budget.total_cost).toFixed(4)}`
+    : report.budget?.cost != null
+    ? `$${Number(report.budget.cost).toFixed(4)}`
+    : null;
+
+  return (
+    <motion.div
+      layout
+      className="rounded-lg text-xs cursor-pointer transition-all"
+      style={{ background: "rgba(255,255,255,0.02)", border: `1px solid rgba(255,255,255,0.06)` }}
+    >
+      <div
+        className="flex items-center gap-2 px-3 py-2.5 hover:bg-white/[0.02] rounded-lg transition-colors"
+        onClick={() => setOpen(!open)}
+      >
+        {/* Mission badge */}
+        <span
+          className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider flex-shrink-0"
+          style={{ background: style.bg, color: style.color, border: `1px solid ${style.border}` }}
+        >
+          {report.mission}
+        </span>
+
+        {/* Timestamp */}
+        <span className="flex items-center gap-1 text-zinc-500 flex-shrink-0">
+          <Clock className="w-3 h-3" />
+          {timeStr}
+        </span>
+
+        {/* Finding count */}
+        <span className="flex items-center gap-1 text-zinc-400 flex-shrink-0">
+          <AlertTriangle className="w-3 h-3" />
+          {report.finding_count}
+        </span>
+
+        {/* Cost */}
+        {cost && (
+          <span className="flex items-center gap-1 text-zinc-500 flex-shrink-0">
+            <DollarSign className="w-3 h-3" />
+            {cost}
+          </span>
+        )}
+
+        {/* Spacer + signed + chevron */}
+        <span className="flex-1" />
+        {report.signed && (
+          <span title="Signed"><FileCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /></span>
+        )}
+        <ChevronRight
+          className="w-3 h-3 text-zinc-600 transition-transform flex-shrink-0"
+          style={{ transform: open ? "rotate(90deg)" : "rotate(0)" }}
+        />
+      </div>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-3 space-y-3">
+              {/* Objective */}
+              {report.objective && (
+                <p className="text-[11px] text-zinc-400 leading-relaxed italic border-l-2 pl-2"
+                   style={{ borderColor: style.color }}>
+                  {report.objective}
+                </p>
+              )}
+
+              {/* Summary */}
+              {report.summary && (
+                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                  {report.summary}
+                </p>
+              )}
+
+              {/* Findings */}
+              {report.findings && report.findings.length > 0 && (
+                <div className="space-y-1.5">
+                  <div className="text-[9px] text-zinc-500 uppercase tracking-widest">
+                    Findings ({report.findings.length})
+                  </div>
+                  {report.findings.map((f, i) => (
+                    <FindingPill key={i} finding={f} />
+                  ))}
+                </div>
+              )}
+
+              {/* Open HTML report link */}
+              <a
+                href={`http://127.0.0.1:4200/api/report/${report.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-[11px] font-medium hover:underline transition-colors"
+                style={{ color: style.color }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ExternalLink className="w-3 h-3" />
+                Open full report
+              </a>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reports panel
+// ---------------------------------------------------------------------------
+function ReportsPanel({ reports }: { reports: Report[] }) {
+  if (reports.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[500px] text-zinc-600">
+        <ClipboardList className="w-12 h-12 text-zinc-800 mb-4" />
+        <p className="text-sm font-medium text-zinc-500">No reports yet</p>
+        <p className="text-xs text-zinc-600 mt-1">Run a scan to generate reports</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
+      {reports.map((report) => (
+        <ReportCard key={report.id} report={report} />
+      ))}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Ledger bar chart
 // ---------------------------------------------------------------------------
 function LedgerChart({ entries }: { entries: LedgerEntry[] }) {
@@ -331,6 +491,8 @@ export default function Home() {
   const [running, setRunning] = useState<string | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [latestSummary, setLatestSummary] = useState<string | null>(null);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [rightTab, setRightTab] = useState<"events" | "reports">("events");
 
   const fetchReports = useCallback(() => {
     socket.send("get_reports");
@@ -356,6 +518,9 @@ export default function Home() {
 
       // Handle reports response directly
       socket.on("reports", (data: any) => {
+        if (data.reports) {
+          setReports(data.reports);
+        }
         if (data.reports?.length) {
           const latest = data.reports[0];
           if (latest?.findings?.length) setFindings(latest.findings);
@@ -390,13 +555,16 @@ export default function Home() {
         }
 
         // Handle reports response
-        if (data.type === "reports" && data.reports?.length) {
-          const latest = data.reports[0];
-          if (latest?.findings?.length) {
-            setFindings(latest.findings);
-          }
-          if (latest?.summary) {
-            setLatestSummary(latest.summary);
+        if (data.type === "reports" && data.reports) {
+          setReports(data.reports);
+          if (data.reports.length) {
+            const latest = data.reports[0];
+            if (latest?.findings?.length) {
+              setFindings(latest.findings);
+            }
+            if (latest?.summary) {
+              setLatestSummary(latest.summary);
+            }
           }
         }
       }),
@@ -514,29 +682,71 @@ export default function Home() {
             )}
           </div>
 
-          {/* Right: Event stream */}
+          {/* Right: Tabbed panel (Event Stream / Reports) */}
           <div className="col-span-8">
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 min-h-[600px]">
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                {running ? (
-                  <><Loader2 className="w-3 h-3 text-amber-500 animate-spin" />
-                  <span className="text-amber-500">Running {running}...</span></>
-                ) : (
-                  <><Activity className="w-3 h-3" /> Event Stream</>
+              {/* Tab bar */}
+              <div className="flex items-center gap-2 mb-3">
+                {([
+                  { id: "events" as const, label: "Event Stream", icon: Activity },
+                  { id: "reports" as const, label: "Reports", icon: ClipboardList, count: reports.length },
+                ]).map((tab) => {
+                  const active = rightTab === tab.id;
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setRightTab(tab.id)}
+                      className="relative px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-medium transition-all cursor-pointer flex items-center gap-1.5"
+                      style={{
+                        background: active ? "rgba(245,158,11,0.08)" : "transparent",
+                        border: `1px solid ${active ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.06)"}`,
+                        color: active ? "#f59e0b" : "#71717a",
+                      }}
+                    >
+                      <Icon className="w-3 h-3" />
+                      {tab.label}
+                      {tab.count != null && tab.count > 0 && (
+                        <span
+                          className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold"
+                          style={{
+                            background: active ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.06)",
+                            color: active ? "#f59e0b" : "#71717a",
+                          }}
+                        >
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+
+                {/* Running indicator (shown regardless of tab) */}
+                {running && (
+                  <div className="ml-auto flex items-center gap-1.5 text-[9px] text-amber-500 uppercase tracking-widest">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Running {running}...
+                  </div>
                 )}
               </div>
-              {events.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-[500px] text-zinc-600">
-                  <Hexagon className="w-12 h-12 text-zinc-800 mb-4" />
-                  <p className="text-sm font-medium text-zinc-500">
-                    {connected ? "Click a command to start" : "Waiting for daemon..."}
-                  </p>
-                  <p className="text-xs text-zinc-600 mt-1">
-                    {connected ? "Events will stream here live" : "honeymoon serve --repo ."}
-                  </p>
-                </div>
+
+              {/* Tab content */}
+              {rightTab === "events" ? (
+                events.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-[500px] text-zinc-600">
+                    <Hexagon className="w-12 h-12 text-zinc-800 mb-4" />
+                    <p className="text-sm font-medium text-zinc-500">
+                      {connected ? "Click a command to start" : "Waiting for daemon..."}
+                    </p>
+                    <p className="text-xs text-zinc-600 mt-1">
+                      {connected ? "Events will stream here live" : "honeymoon serve --repo ."}
+                    </p>
+                  </div>
+                ) : (
+                  <EventStream events={events} />
+                )
               ) : (
-                <EventStream events={events} />
+                <ReportsPanel reports={reports} />
               )}
             </div>
           </div>
