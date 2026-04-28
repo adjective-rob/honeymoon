@@ -429,6 +429,8 @@ Plan: {steps_text}
         total_tokens = 0
         is_read_only = getattr(self, "_mission_read_only", False)
         active_tools = INVESTIGATE_TOOLS if is_read_only else IMPLEMENTER_TOOLS
+        if is_read_only:
+            read_cap = max(read_cap, 30)  # Investigations need more reads
         fast_mode = context.extra.get("fast_mode", False)
         complexity = context.extra.get("estimated_complexity", "medium")
         if is_read_only:
@@ -446,7 +448,8 @@ Plan: {steps_text}
 
             # Stall detection: soft nudge at 6, hard kill at 10
             # Also hard kill if 8+ reads without a single write
-            if write_count == 0 and think_count > 0 and (step >= 6 or read_count >= read_cap):
+            # SKIP for read-only mode (investigations never write)
+            if not is_read_only and write_count == 0 and think_count > 0 and (step >= 6 or read_count >= read_cap):
                 if step >= 10 or read_count >= read_cap:
                     # Hard circuit breaker — agent is stuck in a read loop
                     logger.warning(
