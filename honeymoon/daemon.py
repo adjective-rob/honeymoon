@@ -175,12 +175,19 @@ class HoneymoonDaemon:
     def _run_command(self, action: str, options: dict) -> None:
         """Run a honeymoon command in a background thread."""
         import subprocess
-        cmd = [
-            "honeymoon", action,
+        import sys
+        # Use the same Python/venv that's running the daemon
+        honeymoon_bin = Path(sys.executable).parent / "honeymoon"
+        if not honeymoon_bin.exists():
+            honeymoon_bin = Path(sys.executable).parent / "python"
+            cmd = [str(honeymoon_bin), "-m", "honeymoon", action]
+        else:
+            cmd = [str(honeymoon_bin), action]
+        cmd.extend([
             "--repo", str(self.repo_path),
             "--no-open",
             "--verbose",
-        ]
+        ])
         if action == "simulate" and options.get("scenario"):
             cmd.extend(["--scenario", options["scenario"]])
 
