@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import subprocess
 import sys
 import threading
@@ -18,6 +19,7 @@ from typing import Any
 from loguru import logger
 
 from honeymoon.ledger import read_ledger
+from honeymoon.signing import HiveSigner, HiveVerifier, SIGNING_AVAILABLE
 
 
 class HoneymoonDaemon:
@@ -80,6 +82,114 @@ class HoneymoonDaemon:
                 pass
         return reports
 
+    def _get_trust(self) -> dict:
+        """Trust and signing status for the dashboard."""
+        signer = HiveSigner.load(self.repo_path) if SIGNING_AVAILABLE else None
+        pub_key = signer.public_key_hex if signer else None
+        key_path = self.repo_path / ".honeymoon" / "keys" / "verify.pub"
+
+        # Count signed vs unsigned events in audit log
+        audit_log = self.repo_path / ".honeymoon" / "logs" / "audit.jsonl"
+        signed_events = 0
+        unsigned_events = 0
+        if audit_log.exists():
+            try:
+                for line in audit_log.read_text().splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                        if entry.get("signature"):
+                            signed_events += 1
+                        else:
+                            unsigned_events += 1
+                    except json.JSONDecodeError:
+                        pass
+            except Exception:
+                pass
+
+        # Count signed reports
+        reports_dir = self.repo_path / ".honeymoon" / "reports"
+        signed_reports = 0
+        total_reports = 0
+        latest_signature = None
+        if reports_dir.exists():
+            for json_file in sorted(reports_dir.glob("*.json")):
+                if json_file.stem.startswith("SPEC"):
+                    continue
+                try:
+                    data = json.loads(json_file.read_text())
+                    total_reports += 1
+                    sig = data.get("signature")
+                    if sig:
+                        signed_reports += 1
+                        latest_signature = sig
+                except Exception:
+                    pass
+
+        return {
+            "type": "trust",
+            "signing_available": signer is not None,
+            "public_key": pub_key,
+            "public_key_short": f"{pub_key[:4]}...{pub_key[-4:]}" if pub_key and len(pub_key) >= 8 else pub_key,
+            "key_algorithm": "Ed25519" if signer else None,
+            "key_path": str(key_path) if key_path.exists() else None,
+            "zephyr_available": shutil.which("zephyr") is not None,
+            "signed_events": signed_events,
+            "unsigned_events": unsigned_events,
+            "signed_reports": signed_reports,
+            "latest_signature": latest_signature[:16] + "..." if latest_signature and len(latest_signature) > 16 else latest_signature,
+        }
+
+    def _verify_report(self, report_id: str) -> dict:
+        """Verify the cryptographic signature on a report."""
+        reports_dir = self.repo_path / ".honeymoon" / "reports"
+        json_path = reports_dir / f"{report_id}.json"
+        md_path = reports_dir / f"{report_id}.md"
+
+        if not json_path.exists():
+            return {"type": "verification", "report_id": report_id, "valid": False, "error": "Report not found"}
+
+        try:
+            report_data = json.loads(json_path.read_text())
+            signature = report_data.get("signature")
+            if not signature:
+                return {"type": "verification", "report_id": report_id, "valid": False, "error": "Report is not signed"}
+
+            # Try to get the report body from the markdown file
+            if md_path.exists():
+                md_content = md_path.read_text()
+                # Split on the attestation separator
+                parts = md_content.split("\n---\n")
+                report_body = parts[0] if parts else md_content
+            else:
+                # Fall back to the JSON body (everything except the signature field)
+                body = {k: v for k, v in report_data.items() if k != "signature"}
+                report_body = json.dumps(body, sort_keys=True, default=str)
+
+            signer = HiveSigner.load(self.repo_path)
+            if not signer:
+                # Try with just the public key
+                pub_path = self.repo_path / ".honeymoon" / "keys" / "verify.pub"
+                verifier = HiveVerifier.from_file(pub_path)
+                if not verifier:
+                    return {"type": "verification", "report_id": report_id, "valid": False, "error": "No keys available"}
+                valid = verifier.verify(report_body.encode(), signature)
+                pub_key = pub_path.read_text().strip() if pub_path.exists() else None
+            else:
+                valid = signer.verify(report_body.encode(), signature)
+                pub_key = signer.public_key_hex
+
+            return {
+                "type": "verification",
+                "report_id": report_id,
+                "valid": valid,
+                "public_key": f"{pub_key[:4]}...{pub_key[-4:]}" if pub_key and len(pub_key) >= 8 else pub_key,
+            }
+        except Exception as e:
+            return {"type": "verification", "report_id": report_id, "valid": False, "error": str(e)}
+
     def _broadcast(self, data: dict) -> None:
         """Broadcast a message to all connected WebSocket clients."""
         if not self._loop or not self.ws_clients:
@@ -131,6 +241,13 @@ class HoneymoonDaemon:
                 "type": "ledger",
                 "entries": read_ledger(self.repo_path),
             }, default=str))
+
+        elif action == "get_trust":
+            await websocket.send(json.dumps(self._get_trust(), default=str))
+
+        elif action == "verify_report":
+            report_id = cmd.get("options", {}).get("report_id", "")
+            await websocket.send(json.dumps(self._verify_report(report_id), default=str))
 
         elif action in ("scan", "simulate", "harden", "deep"):
             if self._running_command:

@@ -8,9 +8,10 @@ import {
   ChevronRight, Lock, FileSearch, Zap, Activity,
   TrendingUp, TrendingDown, Minus, ScrollText,
   ExternalLink, Clock, DollarSign, FileCheck, ClipboardList,
+  ShieldCheck, Key, Fingerprint, BadgeCheck, Copy,
 } from "lucide-react";
 import { socket } from "@/lib/ws";
-import type { DaemonState, LedgerEntry, Finding, Report } from "@/lib/types";
+import type { DaemonState, LedgerEntry, Finding, Report, TrustData, VerificationResult } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Severity + Agent config
@@ -314,7 +315,12 @@ const DEFAULT_MISSION_STYLE = { color: "#6b7280", bg: "rgba(255,255,255,0.04)", 
 // ---------------------------------------------------------------------------
 // Report card
 // ---------------------------------------------------------------------------
-function ReportCard({ report }: { report: Report }) {
+function ReportCard({ report, onVerify, verifying, verification }: {
+  report: Report;
+  onVerify?: (id: string) => void;
+  verifying?: boolean;
+  verification?: VerificationResult | null;
+}) {
   const [open, setOpen] = useState(false);
   const style = MISSION_COLORS[report.mission] || DEFAULT_MISSION_STYLE;
   const ts = new Date(report.timestamp);
@@ -365,9 +371,48 @@ function ReportCard({ report }: { report: Report }) {
           </span>
         )}
 
-        {/* Spacer + signed + chevron */}
+        {/* Spacer + verify + signed + chevron */}
         <span className="flex-1" />
-        {report.signed && (
+        {report.signed && onVerify && (
+          <AnimatePresence mode="wait">
+            {verification ? (
+              <motion.span
+                key="result"
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                className="flex items-center gap-1 flex-shrink-0"
+                title={verification.valid ? `Verified by key ${verification.public_key}` : verification.error || "Verification failed"}
+              >
+                {verification.valid ? (
+                  <>
+                    <BadgeCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-[9px] text-emerald-400 font-mono">{verification.public_key}</span>
+                  </>
+                ) : (
+                  <XCircle className="w-3.5 h-3.5 text-red-400" />
+                )}
+              </motion.span>
+            ) : (
+              <motion.button
+                key="verify"
+                onClick={(e) => { e.stopPropagation(); onVerify(report.id); }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                disabled={verifying}
+                className="p-0.5 rounded hover:bg-white/[0.06] transition-colors cursor-pointer flex-shrink-0 disabled:opacity-40"
+                title="Verify signature"
+              >
+                {verifying ? (
+                  <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />
+                ) : (
+                  <ShieldCheck className="w-3.5 h-3.5 text-zinc-500 hover:text-emerald-400 transition-colors" />
+                )}
+              </motion.button>
+            )}
+          </AnimatePresence>
+        )}
+        {report.signed && !onVerify && (
           <span title="Signed"><FileCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /></span>
         )}
         <ChevronRight
@@ -435,7 +480,12 @@ function ReportCard({ report }: { report: Report }) {
 // ---------------------------------------------------------------------------
 // Reports panel
 // ---------------------------------------------------------------------------
-function ReportsPanel({ reports }: { reports: Report[] }) {
+function ReportsPanel({ reports, onVerify, verifying, verificationResults }: {
+  reports: Report[];
+  onVerify: (id: string) => void;
+  verifying: string | null;
+  verificationResults: Record<string, VerificationResult>;
+}) {
   if (reports.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-[500px] text-zinc-600">
@@ -449,7 +499,13 @@ function ReportsPanel({ reports }: { reports: Report[] }) {
   return (
     <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
       {reports.map((report) => (
-        <ReportCard key={report.id} report={report} />
+        <ReportCard
+          key={report.id}
+          report={report}
+          onVerify={onVerify}
+          verifying={verifying === report.id}
+          verification={verificationResults[report.id] || null}
+        />
       ))}
     </div>
   );
@@ -481,6 +537,107 @@ function LedgerChart({ entries }: { entries: LedgerEntry[] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Trust panel
+// ---------------------------------------------------------------------------
+function TrustPanel({ trust }: { trust: TrustData | null }) {
+  const [copied, setCopied] = useState(false);
+
+  if (!trust) return null;
+
+  const copyKey = () => {
+    if (trust.public_key) {
+      navigator.clipboard.writeText(trust.public_key);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
+  const allVerified = trust.unsigned_events === 0 && trust.signed_events > 0;
+
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+      <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+        <ShieldCheck className="w-3 h-3" /> Cryptographic Trust
+      </div>
+
+      {!trust.signing_available ? (
+        <div className="text-xs text-zinc-600 text-center py-4">
+          Signing not available — run <code className="text-zinc-500">honeymoon init</code>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* Key Identity Card */}
+          <div
+            className="rounded-lg p-3 space-y-2"
+            style={{ background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)" }}
+          >
+            <div className="flex items-center gap-2">
+              <Fingerprint className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <span className="font-mono text-xs text-emerald-400 tracking-wide flex-1 truncate">
+                {trust.public_key_short}
+              </span>
+              <motion.button
+                onClick={copyKey}
+                whileTap={{ scale: 0.9 }}
+                className="p-1 rounded hover:bg-white/[0.06] transition-colors cursor-pointer"
+                title="Copy full public key"
+              >
+                {copied ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 text-zinc-500" />
+                )}
+              </motion.button>
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span
+                className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
+                style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}
+              >
+                {trust.key_algorithm}
+              </span>
+              {trust.zephyr_available && (
+                <span
+                  className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider flex items-center gap-1"
+                  style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.3)" }}
+                >
+                  <Key className="w-2.5 h-2.5" />
+                  Hardware Signing
+                </span>
+              )}
+            </div>
+            {trust.key_path && (
+              <div className="text-[10px] text-zinc-600 font-mono truncate">{trust.key_path}</div>
+            )}
+          </div>
+
+          {/* Trust Stats */}
+          <div className="grid grid-cols-3 gap-1.5">
+            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="flex items-center justify-center gap-1 mb-0.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Events</span>
+              </div>
+              <span className="font-mono text-sm font-bold text-zinc-200">{trust.signed_events}</span>
+            </div>
+            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-0.5">Reports</div>
+              <span className="font-mono text-sm font-bold text-zinc-200">{trust.signed_reports}</span>
+            </div>
+            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-0.5">Status</div>
+              <span className={`text-[10px] font-bold ${allVerified ? "text-emerald-400" : "text-amber-400"}`}>
+                {allVerified ? "All verified" : `${trust.unsigned_events} unverified`}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 export default function Home() {
@@ -493,6 +650,9 @@ export default function Home() {
   const [latestSummary, setLatestSummary] = useState<string | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [rightTab, setRightTab] = useState<"events" | "reports">("events");
+  const [trust, setTrust] = useState<TrustData | null>(null);
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const [verificationResults, setVerificationResults] = useState<Record<string, VerificationResult>>({});
 
   const fetchReports = useCallback(() => {
     socket.send("get_reports");
@@ -504,8 +664,9 @@ export default function Home() {
     const unsubs = [
       socket.on("connected", () => {
         setConnected(true);
-        // Fetch reports on connect
+        // Fetch reports and trust data on connect
         setTimeout(fetchReports, 300);
+        setTimeout(() => socket.send("get_trust"), 400);
       }),
       socket.on("disconnected", () => setConnected(false)),
 
@@ -526,6 +687,23 @@ export default function Home() {
           if (latest?.findings?.length) setFindings(latest.findings);
           if (latest?.summary) setLatestSummary(latest.summary);
         }
+      }),
+
+      socket.on("trust", (data: TrustData) => {
+        setTrust(data);
+      }),
+
+      socket.on("verification", (data: VerificationResult) => {
+        setVerifying(null);
+        setVerificationResults((prev) => ({ ...prev, [data.report_id]: data }));
+        // Clear result after 5 seconds
+        setTimeout(() => {
+          setVerificationResults((prev) => {
+            const next = { ...prev };
+            delete next[data.report_id];
+            return next;
+          });
+        }, 5000);
       }),
 
       socket.on("*", (data: any) => {
@@ -581,6 +759,11 @@ export default function Home() {
     setEvents([]);
     setActiveAgent(null);
     socket.send(cmd);
+  }, []);
+
+  const handleVerify = useCallback((reportId: string) => {
+    setVerifying(reportId);
+    socket.send("verify_report", { report_id: reportId });
   }, []);
 
   return (
@@ -680,6 +863,9 @@ export default function Home() {
                 <LedgerChart entries={state.ledger} />
               </div>
             )}
+
+            {/* Trust */}
+            <TrustPanel trust={trust} />
           </div>
 
           {/* Right: Tabbed panel (Event Stream / Reports) */}
@@ -746,7 +932,12 @@ export default function Home() {
                   <EventStream events={events} />
                 )
               ) : (
-                <ReportsPanel reports={reports} />
+                <ReportsPanel
+                  reports={reports}
+                  onVerify={handleVerify}
+                  verifying={verifying}
+                  verificationResults={verificationResults}
+                />
               )}
             </div>
           </div>
