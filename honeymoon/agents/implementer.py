@@ -490,10 +490,23 @@ Plan: {steps_text}
             recent_tools = [m.get("name") for m in messages if m.get("role") == "tool"][-6:]
             search_count = recent_tools.count("search_grep")
 
-            # 3. Deterministic First Step: Force 'think' on step 0
+            # 3. Deterministic step control
             step_kwargs = dict(kwargs)
             if step == 0:
                 step_kwargs["tool_choice"] = {"type": "function", "function": {"name": "think"}}
+            elif is_read_only and step == max_steps - 1:
+                # Force findings submission on final step
+                messages.append({
+                    "role": "user",
+                    "content": "FINAL STEP. You MUST call submit_findings NOW with everything you have found. No more reading.",
+                })
+                step_kwargs["tool_choice"] = {"type": "function", "function": {"name": "submit_findings"}}
+            elif is_read_only and step >= max_steps - 4:
+                # Nudge toward submission in the last few steps
+                messages.append({
+                    "role": "user",
+                    "content": f"You have {max_steps - step - 1} steps remaining. Start synthesizing your findings and call submit_findings soon.",
+                })
 
             response = self.router.complete(
                 role=self.role,
