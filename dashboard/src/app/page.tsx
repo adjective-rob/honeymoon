@@ -238,17 +238,46 @@ function CommandBar({ onCommand, running }: { onCommand: (cmd: string) => void; 
 // Finding card (compact)
 // ---------------------------------------------------------------------------
 function FindingPill({ finding }: { finding: Finding }) {
+  const [open, setOpen] = useState(false);
   const sev = SEV[finding.severity] || SEV.info;
   const Icon = sev.icon;
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+      className="rounded-lg text-xs cursor-pointer transition-all"
       style={{ background: sev.bg, border: `1px solid ${sev.border}` }}
+      onClick={() => setOpen(!open)}
     >
-      <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: sev.color }} />
-      <span className="font-medium truncate" style={{ color: sev.color }}>
-        {finding.title}
-      </span>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: sev.color }} />
+        <span className="font-medium truncate flex-1" style={{ color: sev.color }}>
+          {finding.title}
+        </span>
+        <ChevronRight
+          className="w-3 h-3 transition-transform flex-shrink-0"
+          style={{ color: sev.color, transform: open ? "rotate(90deg)" : "rotate(0)" }}
+        />
+      </div>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pb-2 space-y-1.5">
+              {finding.evidence && (
+                <pre className="text-[10px] font-mono text-zinc-500 bg-black/30 rounded p-2 whitespace-pre-wrap break-all leading-relaxed">
+                  {finding.evidence}
+                </pre>
+              )}
+              {finding.analysis && (
+                <p className="text-[11px] text-zinc-400 leading-relaxed">{finding.analysis}</p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -301,12 +330,21 @@ export default function Home() {
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [latestSummary, setLatestSummary] = useState<string | null>(null);
+
+  const fetchReports = useCallback(() => {
+    socket.send("get_reports");
+  }, []);
 
   useEffect(() => {
     socket.connect();
 
     const unsubs = [
-      socket.on("connected", () => setConnected(true)),
+      socket.on("connected", () => {
+        setConnected(true);
+        // Fetch reports on connect
+        setTimeout(fetchReports, 300);
+      }),
       socket.on("disconnected", () => setConnected(false)),
 
       socket.on("state", (data: DaemonState) => {
@@ -316,7 +354,7 @@ export default function Home() {
 
       socket.on("*", (data: any) => {
         // Stream events
-        if (data.type && data.type !== "state") {
+        if (data.type && data.type !== "state" && data.type !== "reports") {
           setEvents((prev) => [...prev.slice(-300), data as StreamEvent]);
         }
 
@@ -327,25 +365,27 @@ export default function Home() {
         if (data.type === "tool_call" && data.agent) {
           setActiveAgent(data.agent);
         }
-        if (data.type === "complete" || data.type === "command_completed") {
+        if (data.type === "command_completed") {
           setActiveAgent(null);
           setRunning(null);
-          // Refresh state
-          setTimeout(() => socket.send("get_state"), 500);
+          // Refresh state and reports after command finishes
+          setTimeout(() => {
+            socket.send("get_state");
+            fetchReports();
+          }, 1000);
         }
         if (data.type === "command_started") {
           setRunning(data.action);
         }
 
-        // Collect findings from reports refresh
-        if (data.type === "state" && data.ledger?.length) {
-          // Pull latest findings from reports
-          socket.send("get_reports");
-        }
+        // Handle reports response
         if (data.type === "reports" && data.reports?.length) {
           const latest = data.reports[0];
           if (latest?.findings?.length) {
             setFindings(latest.findings);
+          }
+          if (latest?.summary) {
+            setLatestSummary(latest.summary);
           }
         }
       }),
@@ -355,7 +395,7 @@ export default function Home() {
       unsubs.forEach((fn) => fn());
       socket.disconnect();
     };
-  }, []);
+  }, [fetchReports]);
 
   const handleCommand = useCallback((cmd: string) => {
     setRunning(cmd);
@@ -430,14 +470,22 @@ export default function Home() {
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
               <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
                 <Lock className="w-3 h-3" /> Latest Findings
+                {findings.length > 0 && (
+                  <span className="ml-auto text-zinc-600 normal-case tracking-normal">{findings.length} found</span>
+                )}
               </div>
+              {latestSummary && (
+                <p className="text-[11px] text-zinc-400 leading-relaxed mb-3 pb-3 border-b border-white/[0.06]">
+                  {latestSummary}
+                </p>
+              )}
               {findings.length === 0 ? (
                 <div className="text-xs text-zinc-600 text-center py-6">
                   Run a scan to see findings
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  {findings.slice(0, 8).map((f, i) => (
+                  {findings.slice(0, 10).map((f, i) => (
                     <FindingPill key={i} finding={f} />
                   ))}
                 </div>
