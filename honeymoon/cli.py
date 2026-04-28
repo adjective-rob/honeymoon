@@ -1347,6 +1347,8 @@ def deep(
         from honeymoon.mission import load_mission as _load
         m = _load("investigate", repo)
         t = Task.from_interactive(lane["objective"])
+        # Unique task ID per lane to avoid worktree collisions
+        t.task_id = f"{t.task_id}-lane{lane['index']}"
         c = Controller(repo_path=repo, config=load_config(repo), auto_approve=True, mission=m)
         return c.run(t)
 
@@ -1505,6 +1507,10 @@ def _build_investigation_lanes(repo: Path, scan_result) -> list[dict]:
                 "that leaks sensitive information, and any code that bypasses security controls."
             ),
         })
+
+    # Add index to each lane for unique task IDs
+    for i, lane in enumerate(lanes):
+        lane["index"] = i + 1
 
     return lanes
 
