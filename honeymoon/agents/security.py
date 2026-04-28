@@ -258,6 +258,16 @@ FAST MODE ENABLED: This is a trivial change. DO NOT use `think`, `read_file`, `r
                     "type": "function",
                     "function": {"name": "think"},
                 }
+            elif step == max_steps - 1:
+                # Force verdict submission on final step
+                messages.append({
+                    "role": "user",
+                    "content": "FINAL STEP. You MUST call submit_report NOW with your verdict.",
+                })
+                step_kwargs["tool_choice"] = {
+                    "type": "function",
+                    "function": {"name": "submit_report"},
+                }
 
             response = self.router.complete(
                 role=self.role,

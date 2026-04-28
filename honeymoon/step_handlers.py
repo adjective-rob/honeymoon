@@ -312,15 +312,20 @@ def handle_implementer_result(
             return HandlerSignal.EARLY_RETURN
 
     # Compute fast_mode for downstream agents
-    ps.is_fast_mode = (
-        len(ctx.state.files_modified) <= 2
-        or ctx.state.estimated_complexity in ("trivial", "small")
-    )
-    if ps.is_fast_mode:
-        console.print(
-            "  [dim]Trivial change detected. "
-            "Forcing downstream agents into Fast Mode.[/]"
+    # Skip fast mode for report-mode missions — verifier needs full step budget
+    is_report_mode = ctx.mission and ctx.mission.output_mode == "report"
+    if is_report_mode:
+        ps.is_fast_mode = False
+    else:
+        ps.is_fast_mode = (
+            len(ctx.state.files_modified) <= 2
+            or ctx.state.estimated_complexity in ("trivial", "small")
         )
+        if ps.is_fast_mode:
+            console.print(
+                "  [dim]Trivial change detected. "
+                "Forcing downstream agents into Fast Mode.[/]"
+            )
 
     return HandlerSignal.CONTINUE
 

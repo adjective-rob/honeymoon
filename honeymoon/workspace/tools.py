@@ -5,6 +5,7 @@ Agents do NOT run arbitrary commands. The controller exposes
 a constrained set of safe tools. Everything else is blocked.
 """
 
+import shlex
 import subprocess
 import uuid
 from dataclasses import dataclass
@@ -85,7 +86,24 @@ class ToolExecutor:
             action_id=action_id
         )
 
-        # Check blocked patterns first
+        # Check for shell metacharacters — reject command chaining/injection
+        shell_metacharacters = [";", "&&", "||", "|", "`", "$(", "${", "\n", ">>", ">&"]
+        for meta in shell_metacharacters:
+            if meta in command:
+                result = ToolResult(
+                    command=command,
+                    stdout="",
+                    stderr=f"BLOCKED: Shell metacharacter detected: {meta!r}",
+                    returncode=-1,
+                    allowed=False,
+                    action_id=action_id
+                )
+                self._execution_log.append(result)
+                logger.warning(f"[TOOLS] BLOCKED: shell metacharacter {meta!r} in: {command}")
+                self._emit_completion(result, run_id, agent_identity, action_id)
+                raise ToolViolationError(f"Shell metacharacter detected: {meta!r}")
+
+        # Check blocked patterns
         for pattern in self.blocked_patterns:
             if pattern in command:
                 result = ToolResult(
@@ -116,12 +134,13 @@ class ToolExecutor:
             self._emit_completion(result, run_id, agent_identity, action_id)
             raise ToolViolationError(f"Command not allowed: {command}")
 
-        # Execute
+        # Execute — shell=False with argument vector for safety
         logger.info(f"[TOOLS] Running: {command}")
         try:
+            argv = shlex.split(command)
             proc = subprocess.run(
-                command,
-                shell=True,
+                argv,
+                shell=False,
                 cwd=self.working_dir,
                 capture_output=True,
                 text=True,
