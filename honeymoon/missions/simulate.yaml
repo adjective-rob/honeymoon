@@ -85,6 +85,12 @@ agent_overrides:
         - Impact (what they gain: data, access, code execution)
         - Exploitability (trivial / moderate / difficult)
 
+      Focus on CURRENT exploitable chains, not hypothetical future risks.
+      If an attack requires a condition that doesn't exist in the code today
+      (e.g., "if user input were added to this function"), rate exploitability
+      as difficult and confidence as LOW. Do NOT rate speculative chains as HIGH.
+      2 real attack chains beat 5 theoretical ones.
+
       You are NOT writing an audit report. You are demonstrating how an attacker
       would actually compromise this system. Be specific. Be ruthless.
 

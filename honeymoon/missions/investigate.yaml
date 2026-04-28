@@ -77,8 +77,11 @@ agent_overrides:
       Standards:
         - Every finding MUST reference specific file:line evidence
         - Rate severity honestly: critical/high/medium/low/info
-        - Rate confidence: high (verified in code), medium (likely), low (inferred)
-        - Include at least 3 findings or explain why fewer exist
+        - Rate confidence based on current exploitability, not future hypothetical risk.
+          If a finding depends on a condition that doesn't exist yet (e.g., "if remote data
+          is added later", "if an attacker gains access to X"), confidence is LOW, not HIGH.
+        - Only include findings that represent actual current risks. 2 real findings beats
+          5 padded ones. Do NOT include INFO-level observations that are not security risks.
         - Do NOT pad with trivial findings. Quality over quantity.
         - Recommendations must be actionable, not generic
 

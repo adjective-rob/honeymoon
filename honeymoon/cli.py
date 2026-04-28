@@ -1379,14 +1379,8 @@ def deep(
             except Exception as e:
                 console.print(f"  [red]✗[/] {lane['label']}: {e}")
 
-    # Merge findings — deduplicate by title
-    seen_titles: set[str] = set()
-    merged_findings: list[dict] = []
-    for f in all_findings:
-        title = f.get("title", "").lower().strip()
-        if title not in seen_titles:
-            seen_titles.add(title)
-            merged_findings.append(f)
+    # Merge findings — fuzzy deduplicate
+    merged_findings = _deduplicate_findings(all_findings)
 
     # Merge verification — worst verdict wins
     verdict_priority = {"block": 0, "disputed": 0, "warn": 1, "partial": 1, "pass": 2, "confirmed": 2}
@@ -1453,6 +1447,84 @@ def deep(
     if open_report and html_path.exists():
         import webbrowser
         webbrowser.open(f"file://{html_path}")
+
+
+def _deduplicate_findings(findings: list[dict]) -> list[dict]:
+    """Fuzzy-deduplicate findings using file-based and token-overlap strategies.
+
+    When two findings are considered duplicates, keep the higher-quality one:
+      1. Higher severity wins (critical > high > medium > low > info)
+      2. Tie-break: longer evidence string
+      3. Tie-break: higher confidence (high > medium > low)
+    """
+    import re
+
+    severity_rank = {"critical": 4, "high": 3, "medium": 2, "low": 1, "info": 0}
+    confidence_rank = {"high": 2, "medium": 1, "low": 0}
+
+    def _quality_key(f: dict) -> tuple:
+        sev = severity_rank.get(f.get("severity", "info").lower(), 0)
+        evidence_len = len(f.get("evidence", ""))
+        conf = confidence_rank.get(f.get("confidence", "low").lower(), 0)
+        return (sev, evidence_len, conf)
+
+    def _primary_file(f: dict) -> str | None:
+        """Extract the first file path mentioned in evidence."""
+        evidence = f.get("evidence", "")
+        m = re.search(r'(?:^|[\s`"\'])((src|lib|app|pkg|cmd|internal|honeymoon|tests?|components?|pages?|routes?|api|utils?|config|scripts?)/[\w./\-]+\.\w+)', evidence)
+        if m:
+            return m.group(1)
+        # Fallback: any path-like pattern with an extension
+        m = re.search(r'(?:^|[\s`"\'])([\w./\-]+/[\w./\-]+\.\w+)', evidence)
+        return m.group(1) if m else None
+
+    def _tokenize(title: str) -> set[str]:
+        """Tokenize a title into lowercase words, dropping short stopwords."""
+        stops = {"is", "a", "an", "the", "to", "in", "of", "and", "or", "for", "from", "with", "without", "not", "too", "are", "be"}
+        words = re.findall(r'[a-z0-9]+', title.lower())
+        return {w for w in words if w not in stops and len(w) > 1}
+
+    def _jaccard(a: set[str], b: set[str]) -> float:
+        if not a or not b:
+            return 0.0
+        return len(a & b) / len(a | b)
+
+    # Build list of (finding, quality_key, primary_file, tokens)
+    annotated = []
+    for f in findings:
+        annotated.append((
+            f,
+            _quality_key(f),
+            _primary_file(f),
+            _tokenize(f.get("title", "")),
+        ))
+
+    kept: list[tuple] = []  # same shape as annotated entries
+
+    for entry in annotated:
+        f, qk, pf, tokens = entry
+        is_dup = False
+        for i, (kf, kkq, kpf, ktokens) in enumerate(kept):
+            # Exact title match
+            if f.get("title", "").lower().strip() == kf.get("title", "").lower().strip():
+                is_dup = True
+            # File-based dedup: same primary file => likely same issue
+            elif pf and kpf and pf == kpf:
+                is_dup = True
+            # Token overlap dedup: Jaccard > 0.5
+            elif _jaccard(tokens, ktokens) > 0.5:
+                is_dup = True
+
+            if is_dup:
+                # Replace if new finding is higher quality
+                if qk > kkq:
+                    kept[i] = entry
+                break
+
+        if not is_dup:
+            kept.append(entry)
+
+    return [f for f, _, _, _ in kept]
 
 
 def _build_investigation_lanes(repo: Path, scan_result) -> list[dict]:
