@@ -219,4 +219,179 @@ def write_report(
 
     json_path.write_text(json.dumps(json_data, indent=2))
 
+    # --- HTML Report ---
+    html_path = _write_html_report(
+        reports_dir / f"{short_id}.html",
+        run_id=run_id,
+        mission_name=mission_name,
+        objective=objective,
+        timestamp=timestamp,
+        findings=findings,
+        verification=verification,
+        budget=budget,
+        signature=signature if signer else None,
+        public_key=signer.public_key_hex if signer else None,
+    )
+    if html_path:
+        logger.info(f"[REPORT] HTML report: {html_path}")
+
     return report_path
+
+
+def _write_html_report(
+    path: Path,
+    *,
+    run_id: str,
+    mission_name: str,
+    objective: str,
+    timestamp: str,
+    findings: dict[str, Any],
+    verification: dict[str, Any] | None,
+    budget: dict[str, Any] | None,
+    signature: str | None,
+    public_key: str | None,
+) -> Path | None:
+    """Generate a self-contained HTML report."""
+    template_path = Path(__file__).parent / "reporting" / "report_template.html"
+    if not template_path.exists():
+        return None
+
+    template = template_path.read_text()
+    finding_list = findings.get("findings", [])
+    short_id = run_id[:12]
+
+    # Build severity counts
+    sev_counts: dict[str, int] = {}
+    for f in finding_list:
+        s = f.get("severity", "info").lower()
+        sev_counts[s] = sev_counts.get(s, 0) + 1
+
+    risk_pills = ""
+    for sev in ["critical", "high", "medium", "low", "info"]:
+        if sev in sev_counts:
+            risk_pills += f'<span class="risk-pill risk-{sev}">{sev_counts[sev]} {sev.upper()}</span>'
+
+    # Build findings HTML
+    findings_html = ""
+    for i, f in enumerate(finding_list, 1):
+        sev = f.get("severity", "info").lower()
+        conf = f.get("confidence", "medium")
+        sev_class = f"risk-{sev}"
+        icon = {"critical": "\U0001f534", "high": "\U0001f7e0", "medium": "\U0001f7e1", "low": "\U0001f535", "info": "\u26aa"}.get(sev, "\u26aa")
+
+        evidence_html = ""
+        if f.get("evidence"):
+            ev = f["evidence"].replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            evidence_html = f'<div class="evidence">{ev}</div>'
+
+        analysis_html = ""
+        if f.get("analysis"):
+            analysis_html = f'''<div class="analysis-label">Analysis</div>
+<div class="analysis">{f["analysis"]}</div>'''
+
+        findings_html += f'''<div class="finding">
+  <div class="finding-header">
+    <span class="finding-number">{icon}</span>
+    <span class="finding-title">{f.get("title", f"Finding {i}")}</span>
+    <div class="finding-badges">
+      <span class="badge badge-severity {sev_class}">{sev.upper()}</span>
+      <span class="badge badge-confidence">{conf}</span>
+    </div>
+  </div>
+  <div class="finding-body">
+    {evidence_html}
+    {analysis_html}
+  </div>
+</div>'''
+
+    # Build recommendations HTML
+    recs_html = ""
+    for rec in findings.get("recommendations", []):
+        recs_html += f"<li>{rec}</li>"
+
+    # Build verification HTML
+    verification_html = ""
+    if verification:
+        verdict = verification.get("verdict", "unverified")
+        verdict_map = {"pass": "confirmed", "warn": "partial", "block": "disputed"}
+        verdict = verdict_map.get(verdict, verdict)
+        v_class = f"verdict-{verdict}" if verdict in ("confirmed", "partial", "disputed") else ""
+        v_icon = {"confirmed": "\u2705", "partial": "\u26a0\ufe0f", "disputed": "\u274c"}.get(verdict, "\u2753")
+
+        v_summary = verification.get("summary", "")
+        v_issues = ""
+        for issue in verification.get("issues", []):
+            if issue.get("description") and issue.get("file") != "system":
+                v_issues += f'<div class="verifier-issue"><strong>{issue.get("severity", "info").upper()}</strong> [{issue.get("file", "?")}] {issue["description"]}</div>'
+
+        verification_html = f'''<div class="verdict-box {v_class}">
+  <span class="verdict-icon">{v_icon}</span>
+  <div class="verdict-text">
+    <span class="verdict-label">{verdict.upper()}</span>
+    {f"<div>{v_summary}</div>" if v_summary else ""}
+  </div>
+</div>
+{f'<div class="verifier-issues">{v_issues}</div>' if v_issues else ""}'''
+
+    # Build cost HTML
+    cost_html = ""
+    if budget:
+        cost_html = f'''<div class="cost-row">
+  <div class="cost-item"><div class="cost-label">Tokens</div><div class="cost-value mono">{budget.get("total_tokens", 0):,}</div></div>
+  <div class="cost-item"><div class="cost-label">Cost</div><div class="cost-value mono">${budget.get("estimated_cost", 0):.4f}</div></div>
+  <div class="cost-item"><div class="cost-label">API Calls</div><div class="cost-value mono">{budget.get("call_count", 0)}</div></div>
+</div>'''
+
+    # Build attestation HTML
+    if signature and public_key:
+        attestation_html = f'''<div class="attestation">
+  <div class="attestation-title">\U0001f50f Ed25519 Signed</div>
+  <div class="attestation-field"><span>Public Key:</span> <code>{public_key}</code></div>
+  <div class="attestation-sig">{signature}</div>
+</div>'''
+    else:
+        attestation_html = '<div style="color:#6b7280;font-size:13px;">Unsigned &mdash; run <code>honeymoon init</code> to enable Ed25519 signing.</div>'
+
+    # Assemble
+    content = f'''
+  <div class="header">
+    <div class="logo">\U0001f36f HONEYMOON</div>
+    <div class="subtitle">Investigation Report &middot; {short_id}</div>
+  </div>
+
+  <div class="meta">
+    <div class="meta-item"><div class="meta-label">Mission</div><div class="meta-value">{mission_name}</div></div>
+    <div class="meta-item"><div class="meta-label">Findings</div><div class="meta-value">{len(finding_list)}</div></div>
+    <div class="meta-item"><div class="meta-label">Timestamp</div><div class="meta-value mono">{timestamp[:19]}</div></div>
+    <div class="meta-item"><div class="meta-label">Run ID</div><div class="meta-value mono">{short_id}</div></div>
+  </div>
+
+  {f'<div class="section"><div class="section-title">Risk Profile</div><div class="risk-profile">{risk_pills}</div></div>' if risk_pills else ""}
+
+  <div class="section">
+    <div class="section-title">Objective</div>
+    <div class="summary">{objective}</div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Summary</div>
+    <div class="summary">{findings.get("summary", "No summary provided.")}</div>
+  </div>
+
+  {f'<div class="section"><div class="section-title">Findings</div>{findings_html}</div>' if findings_html else ""}
+
+  {f'<div class="section"><div class="section-title">Recommendations</div><ul class="rec-list">{recs_html}</ul></div>' if recs_html else ""}
+
+  {f'<div class="section"><div class="section-title">Verification</div>{verification_html}</div>' if verification_html else ""}
+
+  {f'<div class="section"><div class="section-title">Cost</div>{cost_html}</div>' if cost_html else ""}
+
+  <div class="section">
+    <div class="section-title">Attestation</div>
+    {attestation_html}
+  </div>
+'''
+
+    html = template.replace("{{CONTENT}}", content)
+    path.write_text(html)
+    return path

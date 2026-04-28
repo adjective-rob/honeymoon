@@ -1009,6 +1009,109 @@ def doctor():
     if failed:
         sys.exit(1)
 
+@app.command()
+def scan(
+    repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),
+    objective: Optional[str] = typer.Option(None, "--objective", "-o", help="What to investigate (auto-detected if omitted)"),
+    open_report: bool = typer.Option(True, "--open/--no-open", help="Auto-open HTML report in browser"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
+):
+    """Scan a codebase — one command, full investigation, beautiful report."""
+    from honeymoon.mission import load_mission
+    from honeymoon.report import write_report
+
+    _print_banner()
+    _configure_logging(verbose)
+
+    repo = repo.resolve()
+    if not repo.exists():
+        console.print(f"[red]Repository not found: {repo}[/]")
+        raise typer.Exit(1)
+
+    # Auto-detect objective from repo context
+    if not objective:
+        objective = _auto_detect_objective(repo)
+        console.print(f"[dim]Auto-detected objective: {objective}[/]\n")
+
+    config = load_config(repo)
+    mission = load_mission("investigate", repo)
+
+    console.print(f"[bold cyan]Mission: {mission.name}[/]")
+    console.print(f"[dim]Objective: {objective}[/]\n")
+
+    task = Task.from_interactive(objective)
+
+    AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
+
+    controller = Controller(
+        repo_path=repo,
+        config=config,
+        auto_approve=True,
+        mission=mission,
+    )
+
+    result = controller.run(task)
+
+    findings = result.get("implementation", {})
+    verification = result.get("security", {})
+    budget = result.get("budget", {})
+
+    report_path = write_report(
+        repo_path=repo,
+        run_id=result.get("run_id", task.task_id),
+        mission_name=mission.name,
+        objective=objective,
+        findings=findings,
+        verification=verification,
+        budget=budget,
+    )
+
+    finding_list = findings.get("findings", [])
+    if finding_list:
+        _emit_prelude_decisions(repo, finding_list, objective)
+
+    console.print("\n[bold green]🍯 Scan complete.[/]")
+    console.print(f"  [bold]Report:[/]    {report_path}")
+    console.print(f"  [bold]Findings:[/]  {len(finding_list)}")
+    if finding_list:
+        for f in finding_list:
+            sev = f.get("severity", "info").upper()
+            sev_color = {"CRITICAL": "red", "HIGH": "red", "MEDIUM": "yellow", "LOW": "blue", "INFO": "dim"}.get(sev, "dim")
+            console.print(f"    [{sev_color}]{sev}[/] {f.get('title', '?')}")
+    console.print(f"  [bold]Cost:[/]     ${budget.get('estimated_cost', 0):.4f}")
+
+    # Auto-open HTML report
+    html_path = report_path.with_suffix(".html")
+    if open_report and html_path.exists():
+        import webbrowser
+        webbrowser.open(f"file://{html_path}")
+        console.print(f"  [bold]Opened:[/]   {html_path}")
+
+
+def _auto_detect_objective(repo: Path) -> str:
+    """Auto-detect an investigation objective based on repo characteristics."""
+    # Check for common patterns
+    has_py = any(repo.rglob("*.py"))
+    has_rs = any(repo.rglob("*.rs"))
+    has_ts = any(repo.rglob("*.ts")) or any(repo.rglob("*.tsx"))
+    has_docker = (repo / "Dockerfile").exists() or (repo / "docker-compose.yml").exists()
+
+    parts = []
+    parts.append("Map all security boundaries and trust zones.")
+
+    if has_py or has_rs:
+        parts.append("Trace every path from user input to shell execution or file system access.")
+        parts.append("Identify any gaps in input validation or authorization checks.")
+    if has_ts:
+        parts.append("Check for XSS vectors, unsafe innerHTML, and unvalidated user input in components.")
+    if has_docker:
+        parts.append("Review container configuration for privilege escalation or exposed secrets.")
+
+    parts.append("Flag any hardcoded credentials, API keys, or secrets.")
+
+    return " ".join(parts)
+
+
 # ---------------------------------------------------------------------------
 # Prelude Decision Emission
 # ---------------------------------------------------------------------------

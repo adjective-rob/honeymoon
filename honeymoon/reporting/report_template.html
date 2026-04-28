@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HONEYMOON Investigation Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0b; color: #e5e7eb; font-family: 'DM Sans', -apple-system, sans-serif; line-height: 1.6; }
+  ::selection { background: rgba(245,158,11,0.3); }
+  .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+  .container { max-width: 900px; margin: 0 auto; padding: 48px 24px; }
+
+  /* Header */
+  .header { margin-bottom: 40px; }
+  .logo { font-size: 32px; font-weight: 700; letter-spacing: -0.03em; color: #f3f4f6; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #6b7280; font-weight: 500; }
+
+  /* Meta table */
+  .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1px; background: rgba(255,255,255,0.06); border-radius: 8px; overflow: hidden; margin-bottom: 32px; }
+  .meta-item { padding: 16px 20px; background: rgba(255,255,255,0.02); }
+  .meta-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .meta-value { font-size: 15px; font-weight: 600; color: #e5e7eb; }
+  .meta-value.mono { font-size: 12px; }
+
+  /* Risk pills */
+  .risk-profile { display: flex; gap: 8px; flex-wrap: wrap; }
+  .risk-pill { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .risk-critical { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+  .risk-high { background: rgba(249,115,22,0.15); color: #fdba74; border: 1px solid rgba(249,115,22,0.3); }
+  .risk-medium { background: rgba(234,179,8,0.15); color: #fde047; border: 1px solid rgba(234,179,8,0.3); }
+  .risk-low { background: rgba(59,130,246,0.15); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+  .risk-info { background: rgba(255,255,255,0.05); color: #9ca3af; border: 1px solid rgba(255,255,255,0.1); }
+
+  /* Sections */
+  .section { margin-bottom: 32px; }
+  .section-title { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+
+  /* Summary */
+  .summary { font-size: 15px; color: #d1d5db; line-height: 1.7; padding: 20px 24px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); }
+
+  /* Finding cards */
+  .finding { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; margin-bottom: 16px; overflow: hidden; transition: border-color 0.2s; }
+  .finding:hover { border-color: rgba(255,255,255,0.15); }
+  .finding-header { padding: 16px 20px; display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
+  .finding-number { font-size: 14px; font-weight: 700; color: #4b5563; min-width: 24px; }
+  .finding-title { font-size: 15px; font-weight: 600; color: #f3f4f6; flex: 1; }
+  .finding-badges { display: flex; gap: 6px; align-items: center; }
+  .badge { padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge-severity { }
+  .badge-confidence { background: rgba(255,255,255,0.05); color: #9ca3af; border: 1px solid rgba(255,255,255,0.1); }
+  .finding-body { padding: 0 20px 20px; }
+  .evidence { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 14px 16px; margin: 12px 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9ca3af; white-space: pre-wrap; word-break: break-word; line-height: 1.5; overflow-x: auto; }
+  .analysis { font-size: 14px; color: #d1d5db; line-height: 1.6; }
+  .analysis-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+
+  /* Recommendations */
+  .rec-list { list-style: none; }
+  .rec-list li { padding: 10px 16px; margin-bottom: 4px; background: rgba(16,185,129,0.05); border: 1px solid rgba(16,185,129,0.15); border-radius: 6px; font-size: 14px; color: #d1d5db; display: flex; gap: 10px; align-items: flex-start; }
+  .rec-list li::before { content: '\2192'; color: #10b981; font-weight: 700; flex-shrink: 0; }
+
+  /* Verification */
+  .verdict-box { padding: 16px 20px; border-radius: 8px; display: flex; align-items: center; gap: 12px; }
+  .verdict-confirmed { background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); }
+  .verdict-partial { background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.2); }
+  .verdict-disputed { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); }
+  .verdict-icon { font-size: 24px; }
+  .verdict-text { font-size: 14px; color: #d1d5db; }
+  .verdict-label { font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+  .verifier-issues { margin-top: 12px; }
+  .verifier-issue { padding: 8px 12px; margin-bottom: 4px; border-radius: 4px; font-size: 13px; color: #9ca3af; background: rgba(255,255,255,0.02); }
+
+  /* Cost */
+  .cost-row { display: flex; gap: 32px; padding: 16px 20px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06); }
+  .cost-item .cost-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em; }
+  .cost-item .cost-value { font-size: 18px; font-weight: 700; color: #e5e7eb; }
+
+  /* Attestation */
+  .attestation { background: rgba(16,185,129,0.05); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px; padding: 20px 24px; }
+  .attestation-title { font-size: 13px; font-weight: 700; color: #6ee7b7; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .attestation-field { font-size: 12px; color: #9ca3af; margin-bottom: 4px; }
+  .attestation-field span { color: #6b7280; }
+  .attestation-sig { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #4b5563; word-break: break-all; margin-top: 8px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 4px; }
+
+  /* Footer */
+  .footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.04); display: flex; justify-content: space-between; font-size: 11px; color: #374151; }
+
+  /* Honeycomb bg */
+  .honeycomb { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23f59e0b' fill-opacity='0.02'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+</style>
+</head>
+<body class="honeycomb">
+<div class="container">
+  <!-- Injected by Python -->
+  {{CONTENT}}
+
+  <div class="footer">
+    <span>HONEYMOON Investigation Report &middot; Zephyr SBOF</span>
+    <span>Adjective LLC</span>
+  </div>
+</div>
+</body>
+</html>
