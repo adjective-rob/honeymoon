@@ -1,71 +1,40 @@
 """
 HONEYMOON Daemon — WebSocket server for the live dashboard.
 
-Bridges the EventBus to connected browsers in real-time.
-Also serves REST endpoints for triggering commands and reading state.
-
-Usage:
-    honeymoon serve --repo ~/my-project --port 4200
+Streams pipeline events by tailing the audit log in real-time.
+Also serves REST-like commands via WebSocket for triggering runs.
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
+import sys
 import threading
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
 
-from honeymoon.event_bus import bus
-from honeymoon.ledger import read_ledger, posture_summary
+from honeymoon.ledger import read_ledger
 
 
 class HoneymoonDaemon:
-    """WebSocket + REST server that streams pipeline events to the dashboard."""
+    """WebSocket + file-watching server that streams pipeline events to the dashboard."""
 
     def __init__(self, repo_path: Path, port: int = 4200):
         self.repo_path = repo_path.resolve()
         self.port = port
         self.ws_clients: set[Any] = set()
-        self._event_buffer: list[dict] = []
-
-        # Subscribe to the global EventBus
-        bus.subscribe(self._on_event)
-
-    def _on_event(self, event: Any) -> None:
-        """Called by EventBus for every event. Buffer + broadcast."""
-        try:
-            if hasattr(event, "model_dump"):
-                data = event.model_dump()
-            elif hasattr(event, "__dict__"):
-                data = {k: v for k, v in event.__dict__.items() if not k.startswith("_")}
-            else:
-                data = {"raw": str(event)}
-
-            data["_daemon_ts"] = datetime.now(timezone.utc).isoformat()
-            self._event_buffer.append(data)
-
-            # Broadcast to connected WebSocket clients
-            for ws in list(self.ws_clients):
-                try:
-                    asyncio.run_coroutine_threadsafe(
-                        ws.send(json.dumps(data, default=str)),
-                        self._loop
-                    )
-                except Exception:
-                    self.ws_clients.discard(ws)
-        except Exception as e:
-            logger.debug(f"[DAEMON] Event broadcast error: {e}")
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._running_command: str | None = None
 
     def _get_state(self) -> dict:
         """Current state snapshot for new WebSocket connections."""
         ledger = read_ledger(self.repo_path)
         latest = ledger[-1] if ledger else None
 
-        # Count reports
         reports_dir = self.repo_path / ".honeymoon" / "reports"
         report_count = len(list(reports_dir.glob("*.json"))) if reports_dir.exists() else 0
 
@@ -79,7 +48,7 @@ class HoneymoonDaemon:
             "hardening_runs": len(ledger),
             "report_count": report_count,
             "ledger": ledger,
-            "event_buffer": self._event_buffer[-100:],  # Last 100 events
+            "running": self._running_command,
         }
 
     def _get_reports(self) -> list[dict]:
@@ -109,8 +78,18 @@ class HoneymoonDaemon:
                 })
             except Exception:
                 pass
-
         return reports
+
+    def _broadcast(self, data: dict) -> None:
+        """Broadcast a message to all connected WebSocket clients."""
+        if not self._loop or not self.ws_clients:
+            return
+        msg = json.dumps(data, default=str)
+        for ws in list(self.ws_clients):
+            try:
+                asyncio.run_coroutine_threadsafe(ws.send(msg), self._loop)
+            except Exception:
+                self.ws_clients.discard(ws)
 
     async def _handle_ws(self, websocket: Any) -> None:
         """Handle a WebSocket connection."""
@@ -118,21 +97,18 @@ class HoneymoonDaemon:
         logger.info(f"[DAEMON] Dashboard connected ({len(self.ws_clients)} clients)")
 
         try:
-            # Send initial state
             state = self._get_state()
             await websocket.send(json.dumps(state, default=str))
-            logger.debug(f"[DAEMON] Sent initial state (posture={state.get('posture')})")
 
-            # Listen for commands from the dashboard
             async for message in websocket:
                 logger.debug(f"[DAEMON] Received: {message[:200]}")
                 try:
                     cmd = json.loads(message)
                     await self._handle_command(cmd, websocket)
                 except json.JSONDecodeError:
-                    logger.warning(f"[DAEMON] Bad JSON from client: {message[:100]}")
+                    pass
         except Exception as e:
-            logger.debug(f"[DAEMON] WebSocket handler error: {e}")
+            logger.debug(f"[DAEMON] WebSocket error: {e}")
         finally:
             self.ws_clients.discard(websocket)
             logger.info(f"[DAEMON] Dashboard disconnected ({len(self.ws_clients)} clients)")
@@ -156,18 +132,17 @@ class HoneymoonDaemon:
                 "entries": read_ledger(self.repo_path),
             }, default=str))
 
-        elif action == "get_posture":
-            await websocket.send(json.dumps({
-                "type": "posture",
-                "summary": posture_summary(self.repo_path),
-            }, default=str))
-
         elif action in ("scan", "simulate", "harden", "deep"):
-            # Run command in a background thread
-            await websocket.send(json.dumps({
-                "type": "command_started",
-                "action": action,
-            }))
+            if self._running_command:
+                await websocket.send(json.dumps({
+                    "type": "error",
+                    "message": f"Already running: {self._running_command}",
+                }))
+                return
+
+            self._running_command = action
+            self._broadcast({"type": "command_started", "action": action})
+
             thread = threading.Thread(
                 target=self._run_command,
                 args=(action, cmd.get("options", {})),
@@ -176,46 +151,90 @@ class HoneymoonDaemon:
             thread.start()
 
     def _run_command(self, action: str, options: dict) -> None:
-        """Run a honeymoon command in a background thread."""
-        import subprocess
-        import sys
-        # Use the same Python/venv that's running the daemon
+        """Run a honeymoon command in a background thread, streaming output."""
         honeymoon_bin = Path(sys.executable).parent / "honeymoon"
         if not honeymoon_bin.exists():
-            honeymoon_bin = Path(sys.executable).parent / "python"
-            cmd = [str(honeymoon_bin), "-m", "honeymoon", action]
+            cmd = [sys.executable, "-m", "honeymoon", action]
         else:
             cmd = [str(honeymoon_bin), action]
-        cmd.extend([
-            "--repo", str(self.repo_path),
-            "--no-open",
-            "--verbose",
-        ])
+
+        cmd.extend(["--repo", str(self.repo_path), "--no-open", "--verbose"])
+
         if action == "simulate" and options.get("scenario"):
             cmd.extend(["--scenario", options["scenario"]])
 
+        logger.info(f"[DAEMON] Executing: {' '.join(cmd)}")
+
         try:
-            proc = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=300,
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
                 cwd=self.repo_path,
             )
-            # Broadcast completion
-            for ws in list(self.ws_clients):
-                try:
-                    asyncio.run_coroutine_threadsafe(
-                        ws.send(json.dumps({
-                            "type": "command_completed",
-                            "action": action,
-                            "returncode": proc.returncode,
-                            "stdout": proc.stdout[-2000:] if proc.stdout else "",
-                            "stderr": proc.stderr[-1000:] if proc.stderr else "",
-                        })),
-                        self._loop
-                    )
-                except Exception:
-                    pass
+
+            # Stream stdout lines as events
+            for line in iter(proc.stdout.readline, ""):
+                line = line.rstrip()
+                if not line:
+                    continue
+
+                # Parse structured info from verbose output
+                event: dict[str, Any] = {"type": "output", "line": line}
+
+                if "| DEBUG" in line or "| INFO" in line or "| WARNING" in line or "| ERROR" in line:
+                    # Extract agent/module from loguru format
+                    if "[ROUTER]" in line and "→" in line:
+                        event["type"] = "agent_call"
+                        parts = line.split("→")
+                        if len(parts) >= 2:
+                            event["agent"] = parts[0].split("[ROUTER]")[1].strip()
+                            event["detail"] = parts[1].strip()
+                    elif "[PATCH]" in line and "Tool call:" in line:
+                        event["type"] = "tool_call"
+                        event["tool"] = line.split("Tool call:")[1].strip()
+                    elif "[FRANKIE]" in line and "Tool call:" in line:
+                        event["type"] = "tool_call"
+                        event["agent"] = "security"
+                        event["tool"] = line.split("Tool call:")[1].strip()
+                    elif "[QUEEN]" in line:
+                        event["type"] = "planner"
+                        event["agent"] = "planner"
+                    elif "[EVENT]" in line:
+                        event["type"] = "pipeline_event"
+                        # Extract event type
+                        if ":" in line.split("[EVENT]")[1]:
+                            event["event_name"] = line.split("[EVENT]")[1].split(":")[0].strip()
+                    elif "Plan ready" in line:
+                        event["type"] = "plan_ready"
+                    elif "Investigation complete" in line or "Simulation complete" in line or "Scan complete" in line:
+                        event["type"] = "complete"
+                    elif "LEDGER" in line:
+                        event["type"] = "ledger_update"
+
+                self._broadcast(event)
+
+            proc.wait()
+
+            self._broadcast({
+                "type": "command_completed",
+                "action": action,
+                "returncode": proc.returncode,
+            })
+
+            # Send refreshed state
+            self._broadcast(self._get_state())
+
         except Exception as e:
             logger.error(f"[DAEMON] Command {action} failed: {e}")
+            self._broadcast({
+                "type": "command_error",
+                "action": action,
+                "error": str(e),
+            })
+        finally:
+            self._running_command = None
 
     def run(self) -> None:
         """Start the WebSocket server."""
@@ -229,12 +248,12 @@ class HoneymoonDaemon:
             self._loop = asyncio.get_event_loop()
             async with websockets.serve(self._handle_ws, "127.0.0.1", self.port):
                 logger.info(f"[DAEMON] WebSocket server on ws://127.0.0.1:{self.port}")
-                print("\n🍯 HONEYMOON Dashboard Daemon")
+                print("\n\U0001f36f HONEYMOON Dashboard Daemon")
                 print(f"   Repo:      {self.repo_path}")
                 print(f"   WebSocket: ws://127.0.0.1:{self.port}")
                 print("   Dashboard: cd dashboard && pnpm dev")
                 print("   Press Ctrl+C to stop.\n")
-                await asyncio.Future()  # Run forever
+                await asyncio.Future()
 
         try:
             asyncio.run(serve())

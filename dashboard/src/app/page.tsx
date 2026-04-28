@@ -2,58 +2,115 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  Shield, Search, Target, Bug, Hexagon, Wifi, WifiOff,
+  Play, Loader2, CheckCircle2, AlertTriangle, XCircle,
+  ChevronRight, Lock, FileSearch, Zap, Activity,
+  TrendingUp, TrendingDown, Minus, ScrollText,
+} from "lucide-react";
 import { socket } from "@/lib/ws";
-import { AGENT_COLORS, SEV_COLORS } from "@/lib/types";
-import type { DaemonState, PipelineEvent, LedgerEntry, Finding } from "@/lib/types";
+import type { DaemonState, LedgerEntry, Finding } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
-// Hex cell for the hive
+// Severity + Agent config
 // ---------------------------------------------------------------------------
-function HexCell({
-  label,
-  icon,
-  role,
-  active,
-  pulse,
-}: {
-  label: string;
-  icon: string;
-  role: string;
-  active: boolean;
-  pulse: boolean;
-}) {
-  const color = AGENT_COLORS[role] || "#6b7280";
+const SEV = {
+  critical: { color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", icon: XCircle },
+  high:     { color: "#f97316", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.3)", icon: AlertTriangle },
+  medium:   { color: "#eab308", bg: "rgba(234,179,8,0.12)",  border: "rgba(234,179,8,0.3)",  icon: AlertTriangle },
+  low:      { color: "#3b82f6", bg: "rgba(59,130,246,0.12)", border: "rgba(59,130,246,0.3)", icon: Shield },
+  info:     { color: "#6b7280", bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.1)", icon: FileSearch },
+};
+
+const AGENTS = [
+  { role: "planner",     label: "Queen",     color: "#f59e0b" },
+  { role: "implementer", label: "Builder",   color: "#eab308" },
+  { role: "debugger",    label: "Nurse",     color: "#ef4444" },
+  { role: "security",    label: "Guard",     color: "#10b981" },
+  { role: "testgen",     label: "Inspector", color: "#14b8a6" },
+  { role: "release",     label: "Waggle",    color: "#06b6d4" },
+  { role: "archivist",   label: "Keeper",    color: "#a855f7" },
+];
+
+// ---------------------------------------------------------------------------
+// Posture gauge
+// ---------------------------------------------------------------------------
+function PostureGauge({ score, trend }: { score: number | null; trend: string | null }) {
+  if (score === null) return (
+    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+      <Shield className="w-5 h-5 text-zinc-600" />
+      <span className="text-sm text-zinc-500">No posture data</span>
+    </div>
+  );
+
+  const color = score >= 70 ? "#10b981" : score >= 40 ? "#eab308" : "#ef4444";
+  const TrendIcon = trend === "improving" ? TrendingUp : trend === "degrading" ? TrendingDown : Minus;
+  const circumference = 2 * Math.PI * 40;
+  const offset = circumference - (score / 100) * circumference;
+
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative w-20 h-20">
+        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+          <circle cx={50} cy={50} r={40} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={5} />
+          <motion.circle
+            cx={50} cy={50} r={40} fill="none" stroke={color} strokeWidth={5} strokeLinecap="round"
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: offset }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="font-mono text-xl font-bold" style={{ color }}>{score}</span>
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Posture</div>
+        <div className="flex items-center gap-1 mt-0.5">
+          <TrendIcon className="w-3.5 h-3.5" style={{ color }} />
+          <span className="text-xs font-medium" style={{ color }}>{trend || "unknown"}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Hex hive cell
+// ---------------------------------------------------------------------------
+function HiveCell({ label, color, active }: { label: string; color: string; active: boolean }) {
   return (
     <motion.div
       className="relative flex flex-col items-center justify-center"
-      style={{ width: 90, height: 100 }}
-      animate={pulse ? { scale: [1, 1.08, 1] } : {}}
-      transition={{ duration: 0.6, repeat: pulse ? Infinity : 0, repeatDelay: 0.4 }}
+      style={{ width: 80, height: 90 }}
+      animate={active ? { scale: [1, 1.06, 1] } : {}}
+      transition={{ duration: 0.8, repeat: active ? Infinity : 0, repeatDelay: 0.3 }}
     >
-      <svg viewBox="0 0 100 115" width={90} height={100}>
+      <svg viewBox="0 0 100 115" width={80} height={90}>
         <polygon
           points="50,2 95,28 95,80 50,106 5,80 5,28"
-          fill={active ? `${color}22` : "rgba(255,255,255,0.02)"}
-          stroke={active ? color : "rgba(255,255,255,0.08)"}
-          strokeWidth={active ? 2 : 1}
-          style={{ transition: "all 0.3s" }}
+          fill={active ? `${color}20` : "rgba(255,255,255,0.015)"}
+          stroke={active ? color : "rgba(255,255,255,0.07)"}
+          strokeWidth={active ? 2.5 : 1}
+          style={{ transition: "all 0.4s ease" }}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-2xl">{icon}</span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+        <Hexagon className="w-4 h-4" style={{ color: active ? color : "#4b5563" }} />
         <span
-          className="text-[10px] font-semibold uppercase tracking-wider mt-0.5"
-          style={{ color: active ? color : "#6b7280" }}
+          className="text-[9px] font-bold uppercase tracking-widest"
+          style={{ color: active ? color : "#4b5563" }}
         >
           {label}
         </span>
       </div>
       {active && (
         <motion.div
-          className="absolute -bottom-1 w-2 h-2 rounded-full"
+          className="absolute bottom-1 w-1.5 h-1.5 rounded-full"
           style={{ background: color }}
-          animate={{ opacity: [1, 0.3, 1] }}
-          transition={{ duration: 1, repeat: Infinity }}
+          animate={{ opacity: [1, 0.2, 1] }}
+          transition={{ duration: 0.8, repeat: Infinity }}
         />
       )}
     </motion.div>
@@ -61,151 +118,74 @@ function HexCell({
 }
 
 // ---------------------------------------------------------------------------
-// Posture gauge
+// Event stream
 // ---------------------------------------------------------------------------
-function PostureGauge({ score, trend }: { score: number | null; trend: string | null }) {
-  if (score === null) return null;
-  const color = score >= 70 ? "#10b981" : score >= 40 ? "#eab308" : "#ef4444";
-  const trendIcon = trend === "improving" ? "\u2191" : trend === "degrading" ? "\u2193" : "\u2192";
-  const circumference = 2 * Math.PI * 45;
-  const offset = circumference - (score / 100) * circumference;
-
-  return (
-    <div className="flex items-center gap-4">
-      <div className="relative w-24 h-24">
-        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-          <circle cx={50} cy={50} r={45} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={6} />
-          <motion.circle
-            cx={50} cy={50} r={45} fill="none"
-            stroke={color} strokeWidth={6} strokeLinecap="round"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: offset }}
-            transition={{ duration: 1.5, ease: "easeOut" }}
-          />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-mono text-2xl font-bold" style={{ color }}>{score}</span>
-        </div>
-      </div>
-      <div>
-        <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Posture</div>
-        <div className="text-sm font-semibold" style={{ color }}>
-          {trendIcon} {trend || "unknown"}
-        </div>
-      </div>
-    </div>
-  );
+interface StreamEvent {
+  type: string;
+  line?: string;
+  agent?: string;
+  tool?: string;
+  detail?: string;
+  event_name?: string;
+  action?: string;
+  returncode?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Live event feed
-// ---------------------------------------------------------------------------
-function EventFeed({ events }: { events: PipelineEvent[] }) {
-  const bottomRef = useRef<HTMLDivElement>(null);
+function EventStream({ events }: { events: StreamEvent[] }) {
+  const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [events.length]);
 
-  return (
-    <div className="flex flex-col gap-0.5 max-h-[500px] overflow-y-auto pr-2">
-      <AnimatePresence>
-        {events.slice(-50).map((ev, i) => {
-          const color = AGENT_COLORS[ev.agent_id] || "#6b7280";
-          const icon =
-            ev.event_type === "run.started" ? "\u26A1" :
-            ev.event_type === "run.completed" ? "\uD83C\uDFC1" :
-            ev.event_type?.includes("plan") ? "\uD83E\uDDE0" :
-            ev.event_type?.includes("tool") ? "\uD83D\uDEE0\uFE0F" :
-            ev.event_type?.includes("security") ? "\uD83D\uDD12" :
-            ev.event_type?.includes("finding") ? "\uD83D\uDC1D" :
-            "\u2022";
+  const getIcon = (ev: StreamEvent) => {
+    if (ev.type === "agent_call") return <Zap className="w-3 h-3 text-amber-500" />;
+    if (ev.type === "tool_call") return <Play className="w-3 h-3 text-blue-400" />;
+    if (ev.type === "pipeline_event") return <Activity className="w-3 h-3 text-purple-400" />;
+    if (ev.type === "plan_ready") return <CheckCircle2 className="w-3 h-3 text-green-400" />;
+    if (ev.type === "complete") return <CheckCircle2 className="w-3 h-3 text-emerald-400" />;
+    if (ev.type === "ledger_update") return <Shield className="w-3 h-3 text-amber-400" />;
+    if (ev.type === "command_started") return <Loader2 className="w-3 h-3 text-amber-500 animate-spin" />;
+    if (ev.type === "command_completed") return ev.returncode === 0
+      ? <CheckCircle2 className="w-3 h-3 text-green-500" />
+      : <XCircle className="w-3 h-3 text-red-500" />;
+    return <ChevronRight className="w-3 h-3 text-zinc-600" />;
+  };
 
-          const summary =
-            ev.payload?.command || ev.payload?.tool_name ||
-            ev.payload?.status || ev.payload?.verdict || "";
-
-          return (
-            <motion.div
-              key={`${ev.timestamp}-${i}`}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="flex items-center gap-2 py-1 px-2 rounded text-xs hover:bg-white/[0.02]"
-            >
-              <span className="text-sm">{icon}</span>
-              <span
-                className="font-semibold uppercase text-[9px] tracking-wider min-w-[70px]"
-                style={{ color }}
-              >
-                {ev.agent_id || "system"}
-              </span>
-              <span className="font-mono text-zinc-500 text-[10px]">
-                {ev.event_type}
-              </span>
-              {summary && (
-                <span className="text-zinc-600 truncate max-w-[200px]">{summary}</span>
-              )}
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
-      <div ref={bottomRef} />
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Finding card
-// ---------------------------------------------------------------------------
-function FindingCard({ finding }: { finding: Finding }) {
-  const [open, setOpen] = useState(false);
-  const color = SEV_COLORS[finding.severity] || "#6b7280";
+  const getLabel = (ev: StreamEvent) => {
+    if (ev.type === "agent_call") return `${ev.agent} → ${ev.detail || ""}`;
+    if (ev.type === "tool_call") return `${ev.agent || "agent"} called ${ev.tool}`;
+    if (ev.type === "pipeline_event") return ev.event_name || "";
+    if (ev.type === "plan_ready") return "Plan ready";
+    if (ev.type === "complete") return ev.line || "Complete";
+    if (ev.type === "ledger_update") return ev.line || "Ledger updated";
+    if (ev.type === "command_started") return `Starting ${ev.action}...`;
+    if (ev.type === "command_completed") return `${ev.action} finished (exit ${ev.returncode})`;
+    // Raw output — clean up loguru prefix
+    const line = ev.line || "";
+    const cleaned = line.replace(/^\d{2}:\d{2}:\d{2}\s*\|\s*\w+\s*\|\s*/, "");
+    return cleaned;
+  };
 
   return (
-    <motion.div
-      layout
-      className="border rounded-lg overflow-hidden mb-2 cursor-pointer"
-      style={{
-        background: "rgba(255,255,255,0.03)",
-        borderColor: "rgba(255,255,255,0.08)",
-      }}
-      whileHover={{ borderColor: "rgba(255,255,255,0.15)" }}
-      onClick={() => setOpen(!open)}
-    >
-      <div className="flex items-center gap-3 p-3">
-        <span
-          className="text-[10px] font-bold uppercase min-w-[50px]"
-          style={{ color }}
-        >
-          {finding.severity}
-        </span>
-        <span className="text-sm font-medium text-zinc-200 flex-1">
-          {finding.title}
-        </span>
-        <span className="text-[10px] text-zinc-600">{finding.confidence}</span>
-      </div>
-      <AnimatePresence>
-        {open && (
+    <div className="flex flex-col gap-px max-h-[520px] overflow-y-auto pr-1 custom-scrollbar">
+      <AnimatePresence initial={false}>
+        {events.slice(-80).map((ev, i) => (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="px-3 pb-3 overflow-hidden"
+            key={i}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15 }}
+            className="flex items-start gap-2 py-1.5 px-2 rounded hover:bg-white/[0.02] group"
           >
-            {finding.evidence && (
-              <pre className="text-[11px] font-mono text-zinc-500 bg-black/40 rounded p-2 mb-2 whitespace-pre-wrap break-all">
-                {finding.evidence}
-              </pre>
-            )}
-            {finding.analysis && (
-              <p className="text-xs text-zinc-400 leading-relaxed">{finding.analysis}</p>
-            )}
+            <span className="mt-0.5 flex-shrink-0">{getIcon(ev)}</span>
+            <span className="text-[11px] text-zinc-400 leading-relaxed font-mono truncate">
+              {getLabel(ev)}
+            </span>
           </motion.div>
-        )}
+        ))}
       </AnimatePresence>
-    </motion.div>
+      <div ref={endRef} />
+    </div>
   );
 }
 
@@ -214,91 +194,165 @@ function FindingCard({ finding }: { finding: Finding }) {
 // ---------------------------------------------------------------------------
 function CommandBar({ onCommand, running }: { onCommand: (cmd: string) => void; running: string | null }) {
   const commands = [
-    { id: "scan", label: "Scan", icon: "\uD83D\uDD0D", color: "#3b82f6" },
-    { id: "simulate", label: "Simulate", icon: "\uD83C\uDFAF", color: "#ef4444" },
-    { id: "harden", label: "Harden", icon: "\uD83D\uDEE1\uFE0F", color: "#f59e0b" },
-    { id: "deep", label: "Deep Scan", icon: "\uD83D\uDC1D", color: "#10b981" },
+    { id: "scan",     label: "Scan",     icon: Search,  desc: "Quick investigate" },
+    { id: "simulate", label: "Simulate", icon: Target,  desc: "Red/Blue attack sim" },
+    { id: "harden",   label: "Harden",   icon: Shield,  desc: "Posture tracking" },
+    { id: "deep",     label: "Deep Scan", icon: Bug,    desc: "Full audit + SPEC" },
   ];
 
   return (
-    <div className="flex gap-2">
-      {commands.map((cmd) => (
-        <motion.button
-          key={cmd.id}
-          onClick={() => onCommand(cmd.id)}
-          disabled={!!running}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 disabled:opacity-40 transition-all"
-          style={{
-            background: running === cmd.id ? `${cmd.color}33` : "rgba(255,255,255,0.04)",
-            border: `1px solid ${running === cmd.id ? cmd.color : "rgba(255,255,255,0.08)"}`,
-            color: running === cmd.id ? cmd.color : "#9ca3af",
-          }}
-        >
-          <span>{cmd.icon}</span>
-          {running === cmd.id ? "Running..." : cmd.label}
-        </motion.button>
-      ))}
+    <div className="grid grid-cols-4 gap-2">
+      {commands.map((cmd) => {
+        const isRunning = running === cmd.id;
+        const Icon = cmd.icon;
+        return (
+          <motion.button
+            key={cmd.id}
+            onClick={() => onCommand(cmd.id)}
+            disabled={!!running}
+            whileHover={running ? {} : { y: -2 }}
+            whileTap={running ? {} : { scale: 0.98 }}
+            className="relative px-4 py-3 rounded-xl text-left disabled:opacity-40 transition-all overflow-hidden"
+            style={{
+              background: isRunning ? "rgba(245,158,11,0.08)" : "rgba(255,255,255,0.02)",
+              border: `1px solid ${isRunning ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.06)"}`,
+            }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              {isRunning ? (
+                <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
+              ) : (
+                <Icon className="w-4 h-4 text-zinc-400" />
+              )}
+              <span className="text-sm font-semibold text-zinc-200">{cmd.label}</span>
+            </div>
+            <span className="text-[10px] text-zinc-500">{isRunning ? "Running..." : cmd.desc}</span>
+          </motion.button>
+        );
+      })}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Main App
+// Finding card (compact)
+// ---------------------------------------------------------------------------
+function FindingPill({ finding }: { finding: Finding }) {
+  const sev = SEV[finding.severity] || SEV.info;
+  const Icon = sev.icon;
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+      style={{ background: sev.bg, border: `1px solid ${sev.border}` }}
+    >
+      <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: sev.color }} />
+      <span className="font-medium truncate" style={{ color: sev.color }}>
+        {finding.title}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Stats card
+// ---------------------------------------------------------------------------
+function Stat({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+  return (
+    <div className="px-4 py-3">
+      <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">{label}</div>
+      <div className="font-mono text-lg font-bold text-zinc-200">{value}</div>
+      {sub && <div className="text-[10px] text-zinc-500 mt-0.5">{sub}</div>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Ledger bar chart
+// ---------------------------------------------------------------------------
+function LedgerChart({ entries }: { entries: LedgerEntry[] }) {
+  if (!entries.length) return null;
+  return (
+    <div className="flex items-end gap-0.5 h-12">
+      {entries.slice(-30).map((e, i) => {
+        const color = e.posture_score >= 70 ? "#10b981" : e.posture_score >= 40 ? "#eab308" : "#ef4444";
+        return (
+          <motion.div
+            key={i}
+            initial={{ height: 0 }}
+            animate={{ height: `${Math.max(e.posture_score, 4)}%` }}
+            transition={{ duration: 0.4, delay: i * 0.03 }}
+            className="flex-1 rounded-t min-w-[3px]"
+            style={{ background: color, opacity: 0.6 }}
+            title={`#${e.total_runs}: ${e.posture_score}/100`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main
 // ---------------------------------------------------------------------------
 export default function Home() {
   const [connected, setConnected] = useState(false);
   const [state, setState] = useState<DaemonState | null>(null);
-  const [events, setEvents] = useState<PipelineEvent[]>([]);
+  const [events, setEvents] = useState<StreamEvent[]>([]);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [running, setRunning] = useState<string | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
 
-  // Connect to daemon
   useEffect(() => {
     socket.connect();
 
     const unsubs = [
       socket.on("connected", () => setConnected(true)),
       socket.on("disconnected", () => setConnected(false)),
+
       socket.on("state", (data: DaemonState) => {
         setState(data);
-        // Extract findings from ledger
-        const allFindings: Finding[] = [];
-        for (const report of data.event_buffer || []) {
-          if (report.payload?.findings) {
-            allFindings.push(...report.payload.findings);
-          }
-        }
-        if (allFindings.length) setFindings(allFindings);
+        setRunning(data.running || null);
       }),
+
       socket.on("*", (data: any) => {
-        if (data.event_type) {
-          setEvents((prev) => [...prev.slice(-200), data as PipelineEvent]);
-
-          // Track active agent
-          if (data.event_type === "pipeline.step_started") {
-            setActiveAgent(data.payload?.agent_role || null);
-          } else if (data.event_type === "pipeline.step_completed" || data.event_type === "run.completed") {
-            setActiveAgent(null);
-          }
-
-          // Track findings from submit_findings
-          if (data.event_type === "agent.submit_findings" && data.payload?.findings) {
-            setFindings((prev) => [...prev, ...data.payload.findings]);
-          }
+        // Stream events
+        if (data.type && data.type !== "state") {
+          setEvents((prev) => [...prev.slice(-300), data as StreamEvent]);
         }
-        if (data.type === "command_completed") {
+
+        // Track active agent from output parsing
+        if (data.type === "agent_call" && data.agent) {
+          setActiveAgent(data.agent);
+        }
+        if (data.type === "tool_call" && data.agent) {
+          setActiveAgent(data.agent);
+        }
+        if (data.type === "complete" || data.type === "command_completed") {
+          setActiveAgent(null);
           setRunning(null);
           // Refresh state
-          socket.send("get_state");
+          setTimeout(() => socket.send("get_state"), 500);
+        }
+        if (data.type === "command_started") {
+          setRunning(data.action);
+        }
+
+        // Collect findings from reports refresh
+        if (data.type === "state" && data.ledger?.length) {
+          // Pull latest findings from reports
+          socket.send("get_reports");
+        }
+        if (data.type === "reports" && data.reports?.length) {
+          const latest = data.reports[0];
+          if (latest?.findings?.length) {
+            setFindings(latest.findings);
+          }
         }
       }),
     ];
 
     return () => {
-      unsubs.forEach((unsub) => unsub());
+      unsubs.forEach((fn) => fn());
       socket.disconnect();
     };
   }, []);
@@ -306,157 +360,137 @@ export default function Home() {
   const handleCommand = useCallback((cmd: string) => {
     setRunning(cmd);
     setEvents([]);
+    setActiveAgent(null);
     socket.send(cmd);
   }, []);
 
-  const agents = [
-    { role: "planner", label: "Queen", icon: "\uD83D\uDC51" },
-    { role: "implementer", label: "Builder", icon: "\uD83C\uDFD7\uFE0F" },
-    { role: "debugger", label: "Nurse", icon: "\uD83E\uDE7A" },
-    { role: "security", label: "Guard", icon: "\uD83D\uDC1D" },
-    { role: "testgen", label: "Inspector", icon: "\uD83D\uDD0D" },
-    { role: "release", label: "Waggle", icon: "\uD83D\uDC83" },
-    { role: "archivist", label: "Keeper", icon: "\uD83C\uDF6F" },
-  ];
-
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen p-5">
+      <div className="max-w-[1400px] mx-auto">
+
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-              <span className="text-2xl">{"\uD83C\uDF6F"}</span> HONEYMOON
-            </h1>
-            <p className="text-sm text-zinc-500 mt-1">
-              {state?.repo_name || "Not connected"} &middot;{" "}
-              <span className={connected ? "text-emerald-500" : "text-red-500"}>
-                {connected ? "Live" : "Connecting..."}
-              </span>
-            </p>
+        <header className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <Hexagon className="w-5 h-5 text-amber-500" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-zinc-100">HONEYMOON</h1>
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className="text-zinc-500">{state?.repo_name || "—"}</span>
+                <span className="flex items-center gap-1">
+                  {connected ? (
+                    <><Wifi className="w-3 h-3 text-emerald-500" /><span className="text-emerald-500">Live</span></>
+                  ) : (
+                    <><WifiOff className="w-3 h-3 text-red-500" /><span className="text-red-500">Disconnected</span></>
+                  )}
+                </span>
+              </div>
+            </div>
           </div>
+
           <div className="flex items-center gap-6">
             <PostureGauge score={state?.posture ?? null} trend={state?.trend ?? null} />
-            <div className="text-right">
-              <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Runs</div>
-              <div className="font-mono text-lg font-bold text-zinc-300">
-                {state?.hardening_runs ?? 0}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Reports</div>
-              <div className="font-mono text-lg font-bold text-zinc-300">
-                {state?.report_count ?? 0}
-              </div>
+            <div className="flex gap-px rounded-lg border border-white/[0.06] overflow-hidden">
+              <Stat label="Runs" value={state?.hardening_runs ?? 0} />
+              <Stat label="Reports" value={state?.report_count ?? 0} />
+              <Stat label="Issues" value={state?.finding_count ?? 0} />
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* Command bar */}
-        <div className="mb-8">
+        {/* Commands */}
+        <section className="mb-6">
           <CommandBar onCommand={handleCommand} running={running} />
-        </div>
+        </section>
 
         {/* Main grid */}
-        <div className="grid grid-cols-12 gap-6">
-          {/* Hive */}
-          <div className="col-span-5">
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-3">
-              The Hive
-            </div>
-            <div className="flex flex-wrap justify-center gap-1 p-4 rounded-xl border border-white/[0.06] bg-white/[0.02]">
-              {agents.map((a) => (
-                <HexCell
-                  key={a.role}
-                  label={a.label}
-                  icon={a.icon}
-                  role={a.role}
-                  active={activeAgent === a.role}
-                  pulse={activeAgent === a.role}
-                />
-              ))}
+        <div className="grid grid-cols-12 gap-5">
+
+          {/* Left: Hive + Findings */}
+          <div className="col-span-4 space-y-5">
+            {/* Hive */}
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <Hexagon className="w-3 h-3" /> The Hive
+              </div>
+              <div className="flex flex-wrap justify-center gap-0.5">
+                {AGENTS.map((a) => (
+                  <HiveCell
+                    key={a.role}
+                    label={a.label}
+                    color={a.color}
+                    active={activeAgent === a.role}
+                  />
+                ))}
+              </div>
             </div>
 
             {/* Findings */}
-            {findings.length > 0 && (
-              <div className="mt-6">
-                <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-3">
-                  Findings ({findings.length})
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <Lock className="w-3 h-3" /> Latest Findings
+              </div>
+              {findings.length === 0 ? (
+                <div className="text-xs text-zinc-600 text-center py-6">
+                  Run a scan to see findings
                 </div>
-                {findings.slice(-10).map((f, i) => (
-                  <FindingCard key={`${f.title}-${i}`} finding={f} />
-                ))}
+              ) : (
+                <div className="space-y-1.5">
+                  {findings.slice(0, 8).map((f, i) => (
+                    <FindingPill key={i} finding={f} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Ledger */}
+            {state?.ledger && state.ledger.length > 0 && (
+              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+                <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                  <ScrollText className="w-3 h-3" /> Hardening Ledger
+                </div>
+                <LedgerChart entries={state.ledger} />
               </div>
             )}
           </div>
 
-          {/* Event stream */}
-          <div className="col-span-7">
-            <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-3">
-              {running ? (
-                <span className="text-amber-500">
-                  {"\u26A1"} Running {running}...
-                </span>
-              ) : (
-                "Event Stream"
-              )}
-            </div>
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 min-h-[400px]">
+          {/* Right: Event stream */}
+          <div className="col-span-8">
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 min-h-[600px]">
+              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                {running ? (
+                  <><Loader2 className="w-3 h-3 text-amber-500 animate-spin" />
+                  <span className="text-amber-500">Running {running}...</span></>
+                ) : (
+                  <><Activity className="w-3 h-3" /> Event Stream</>
+                )}
+              </div>
               {events.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-[400px] text-zinc-600">
-                  <span className="text-4xl mb-3">{"\uD83D\uDC1D"}</span>
-                  <p className="text-sm">
-                    {connected
-                      ? "Click a command to start. Events will stream here live."
-                      : "Start the daemon: honeymoon serve --repo ."}
+                <div className="flex flex-col items-center justify-center h-[500px] text-zinc-600">
+                  <Hexagon className="w-12 h-12 text-zinc-800 mb-4" />
+                  <p className="text-sm font-medium text-zinc-500">
+                    {connected ? "Click a command to start" : "Waiting for daemon..."}
+                  </p>
+                  <p className="text-xs text-zinc-600 mt-1">
+                    {connected ? "Events will stream here live" : "honeymoon serve --repo ."}
                   </p>
                 </div>
               ) : (
-                <EventFeed events={events} />
+                <EventStream events={events} />
               )}
             </div>
-
-            {/* Ledger summary */}
-            {state?.ledger && state.ledger.length > 0 && (
-              <div className="mt-6">
-                <div className="text-[10px] text-zinc-500 uppercase tracking-widest mb-3">
-                  Hardening Ledger
-                </div>
-                <div className="flex gap-1">
-                  {state.ledger.slice(-20).map((entry, i) => {
-                    const color =
-                      entry.posture_score >= 70 ? "#10b981" :
-                      entry.posture_score >= 40 ? "#eab308" : "#ef4444";
-                    return (
-                      <motion.div
-                        key={i}
-                        initial={{ height: 0 }}
-                        animate={{ height: `${entry.posture_score}%` }}
-                        transition={{ duration: 0.5, delay: i * 0.05 }}
-                        className="flex-1 rounded-t"
-                        style={{
-                          background: color,
-                          minHeight: 4,
-                          maxHeight: 60,
-                          opacity: 0.7,
-                        }}
-                        title={`Run #${entry.total_runs}: ${entry.posture_score}/100`}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="mt-12 pt-4 border-t border-white/[0.04] flex justify-between text-[11px] text-zinc-700">
-          <span>HONEYMOON Dashboard &middot; Adjective LLC</span>
-          <span>
-            {connected ? "\uD83D\uDFE2" : "\uD83D\uDD34"} ws://127.0.0.1:4200
+        <footer className="mt-8 pt-4 border-t border-white/[0.04] flex justify-between text-[10px] text-zinc-700">
+          <span>HONEYMOON &middot; Adjective LLC</span>
+          <span className="flex items-center gap-1">
+            {connected ? <Wifi className="w-2.5 h-2.5 text-emerald-600" /> : <WifiOff className="w-2.5 h-2.5 text-red-600" />}
+            ws://127.0.0.1:4200
           </span>
-        </div>
+        </footer>
       </div>
     </div>
   );
