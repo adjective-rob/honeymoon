@@ -1009,6 +1009,148 @@ def doctor():
     if failed:
         sys.exit(1)
 
+
+@app.command()
+def harden(
+    repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),
+    scenario: Optional[str] = typer.Option(None, "--scenario", "-s", help="Attack scenario (auto-detected if omitted)"),
+    posture: bool = typer.Option(False, "--posture", "-p", help="Show posture summary only (no simulation)"),
+    open_report: bool = typer.Option(True, "--open/--no-open", help="Auto-open HTML report"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
+):
+    """Continuous adversarial hardening — simulate, diff, track posture over time."""
+    from honeymoon.ledger import append_ledger, posture_summary, read_ledger
+    from honeymoon.mission import load_mission
+    from honeymoon.report import write_report
+
+    _print_banner()
+    _configure_logging(verbose)
+
+    repo = repo.resolve()
+    if not repo.exists():
+        console.print(f"[red]Repository not found: {repo}[/]")
+        raise typer.Exit(1)
+
+    # Posture-only mode
+    if posture:
+        summary = posture_summary(repo)
+        entries = read_ledger(repo)
+        console.print(f"\n[bold cyan]🛡️  Security Posture — {repo.name}[/]\n")
+        console.print(summary)
+        if entries:
+            console.print(f"\n[dim]Ledger: {repo / '.honeymoon' / 'ledger.jsonl'}[/]")
+            # Show trend sparkline
+            scores = [e.get("posture_score", 0) for e in entries]
+            if len(scores) > 1:
+                spark = " ".join(
+                    f"[{'green' if s >= 70 else 'yellow' if s >= 40 else 'red'}]{s}[/]"
+                    for s in scores[-10:]
+                )
+                console.print(f"  Trend: {spark}")
+        return
+
+    # Run simulation
+    config = load_config(repo)
+    mission = load_mission("simulate", repo)
+
+    if not scenario:
+        scenario = _auto_detect_attack_scenario(repo)
+
+    # Check ledger for previous runs
+    entries = read_ledger(repo)
+    run_number = len(entries) + 1
+
+    console.print(f"\n[bold red]🛡️  Hardening Run #{run_number}[/]")
+    if entries:
+        prev = entries[-1]
+        console.print(
+            f"  [dim]Previous: score={prev.get('posture_score', '?')}/100, "
+            f"{prev.get('finding_count', '?')} findings[/]"
+        )
+    console.print(f"  [dim]Scenario: {scenario[:80]}...[/]\n")
+
+    task = Task.from_interactive(scenario)
+    AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
+
+    controller = Controller(
+        repo_path=repo,
+        config=config,
+        auto_approve=True,
+        mission=mission,
+    )
+
+    result = controller.run(task)
+
+    findings = result.get("implementation", {})
+    verification = result.get("security", {})
+    budget = result.get("budget", {})
+    finding_list = findings.get("findings", [])
+
+    # Write report
+    report_path = write_report(
+        repo_path=repo,
+        run_id=result.get("run_id", task.task_id),
+        mission_name=f"harden-{run_number}",
+        objective=scenario,
+        findings=findings,
+        verification=verification,
+        budget=budget,
+    )
+
+    # Append to ledger
+    ledger_entry = append_ledger(
+        repo_path=repo,
+        run_id=result.get("run_id", task.task_id),
+        mission="harden",
+        findings=finding_list,
+        verification=verification,
+        budget=budget,
+    )
+
+    # Persist to prelude
+    if finding_list:
+        _emit_prelude_decisions(repo, finding_list, scenario)
+
+    # Summary
+    score = ledger_entry.get("posture_score", "?")
+    trend = ledger_entry.get("trend", "?")
+    trend_icon = {"improving": "[green]\u2191[/]", "degrading": "[red]\u2193[/]", "stable": "[yellow]\u2192[/]"}.get(trend, "?")
+    new_count = ledger_entry.get("new_count", 0)
+    resolved_count = ledger_entry.get("resolved_count", 0)
+
+    console.print(f"\n[bold]🛡️  Hardening Run #{run_number} Complete[/]")
+    console.print(f"  [bold]Posture:[/]    {score}/100 {trend_icon} {trend}")
+    console.print(f"  [bold]Findings:[/]   {len(finding_list)} total")
+    if new_count:
+        console.print(f"  [bold red]New:[/]        {new_count} new issues surfaced")
+    if resolved_count:
+        console.print(f"  [bold green]Resolved:[/]   {resolved_count} issues no longer present")
+    console.print(f"  [bold]Report:[/]     {report_path}")
+    console.print(f"  [bold]Cost:[/]       ${budget.get('estimated_cost', 0):.4f}")
+
+    if finding_list:
+        console.print("\n  [dim]Attack chains:[/]")
+        for f in finding_list:
+            sev = f.get("severity", "info").upper()
+            sev_color = {"CRITICAL": "red", "HIGH": "red", "MEDIUM": "yellow", "LOW": "blue", "INFO": "dim"}.get(sev, "dim")
+            fp = _fingerprint_display(f, ledger_entry)
+            console.print(f"    [{sev_color}]{sev}[/] {f.get('title', '?')} {fp}")
+
+    html_path = report_path.with_suffix(".html")
+    if open_report and html_path.exists():
+        import webbrowser
+        webbrowser.open(f"file://{html_path}")
+
+
+def _fingerprint_display(finding: dict, entry: dict) -> str:
+    """Show whether a finding is new, persistent, or resolved."""
+    from honeymoon.ledger import _fingerprint
+    fp = _fingerprint(finding)
+    if fp in entry.get("new_findings", []):
+        return "[bold red](NEW)[/]"
+    return "[dim](known)[/]"
+
+
 @app.command()
 def simulate(
     repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),

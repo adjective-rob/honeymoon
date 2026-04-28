@@ -380,12 +380,121 @@ function FindingsTab({reports}) {
 }
 
 
+// ---------------------------------------------------------------------------
+// Hardening Tab — Posture Over Time
+// ---------------------------------------------------------------------------
+
+function PostureChart({entries}) {
+  if (!entries || entries.length === 0) return null;
+  const maxScore = 100;
+  const w = 600;
+  const h = 120;
+  const padding = 30;
+  const chartW = w - padding * 2;
+  const chartH = h - padding;
+
+  const points = entries.map((e, i) => {
+    const x = padding + (i / Math.max(entries.length - 1, 1)) * chartW;
+    const y = padding + chartH - (e.posture_score / maxScore) * chartH;
+    return { x, y, score: e.posture_score, run: i + 1 };
+  });
+
+  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const lastScore = points[points.length - 1]?.score || 0;
+  const scoreColor = lastScore >= 70 ? '#10b981' : lastScore >= 40 ? '#eab308' : '#ef4444';
+
+  return <svg width={w} height={h} style={{display:'block',margin:'0 auto'}}>
+    {/* Grid lines */}
+    {[0, 25, 50, 75, 100].map(v => {
+      const y = padding + chartH - (v / maxScore) * chartH;
+      return <g key={v}>
+        <line x1={padding} y1={y} x2={w - padding} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth={1}/>
+        <text x={padding - 4} y={y + 3} textAnchor="end" fill="#4b5563" fontSize={9} fontFamily="JetBrains Mono">{v}</text>
+      </g>;
+    })}
+    {/* Line */}
+    <path d={pathD} fill="none" stroke={scoreColor} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
+    {/* Dots */}
+    {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={3} fill={scoreColor} stroke="#0a0a0b" strokeWidth={1.5}/>)}
+    {/* Current score */}
+    <text x={w - padding + 6} y={points[points.length - 1]?.y + 4 || 0} fill={scoreColor} fontSize={14} fontWeight={700} fontFamily="JetBrains Mono">{lastScore}</text>
+  </svg>;
+}
+
+function HardeningTab({entries}) {
+  if (!entries || entries.length === 0) return <div style={{padding:48,textAlign:'center',color:'#4b5563',border:'1px dashed rgba(255,255,255,0.08)',borderRadius:8}}>
+    <div style={{fontSize:32,marginBottom:12}}>{'\uD83D\uDEE1\uFE0F'}</div>
+    <div style={{fontSize:14}}>No hardening history. Run <span className="mono" style={{fontSize:12}}>honeymoon harden --repo .</span></div>
+  </div>;
+
+  const latest = entries[entries.length - 1];
+  const trend = latest.trend || 'stable';
+  const trendIcon = {improving:'\u2191 improving',degrading:'\u2193 degrading',stable:'\u2192 stable'}[trend]||trend;
+  const trendColor = {improving:'#10b981',degrading:'#ef4444',stable:'#eab308'}[trend]||'#6b7280';
+
+  return <div>
+    {/* Posture Score */}
+    <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,padding:'24px 28px',marginBottom:20}}>
+      <div style={{display:'flex',alignItems:'center',gap:24,flexWrap:'wrap'}}>
+        <div>
+          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Posture Score</div>
+          <div className="mono" style={{fontSize:48,fontWeight:700,color:latest.posture_score >= 70?'#10b981':latest.posture_score >= 40?'#eab308':'#ef4444'}}>{latest.posture_score}</div>
+        </div>
+        <div>
+          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Trend</div>
+          <div style={{fontSize:16,fontWeight:600,color:trendColor}}>{trendIcon}</div>
+        </div>
+        <div>
+          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Runs</div>
+          <div className="mono" style={{fontSize:16,fontWeight:600,color:'#e5e7eb'}}>{latest.total_runs || entries.length}</div>
+        </div>
+        <div>
+          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Active Issues</div>
+          <div className="mono" style={{fontSize:16,fontWeight:600,color:'#e5e7eb'}}>{latest.finding_count}</div>
+        </div>
+        {latest.new_count > 0 && <div>
+          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>New</div>
+          <div className="mono" style={{fontSize:16,fontWeight:700,color:'#ef4444'}}>{latest.new_count}</div>
+        </div>}
+        {latest.resolved_count > 0 && <div>
+          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Resolved</div>
+          <div className="mono" style={{fontSize:16,fontWeight:700,color:'#10b981'}}>{latest.resolved_count}</div>
+        </div>}
+      </div>
+    </div>
+
+    {/* Chart */}
+    {entries.length > 1 && <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,padding:'16px',marginBottom:20}}>
+      <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Posture Over Time</div>
+      <PostureChart entries={entries}/>
+    </div>}
+
+    {/* Run history */}
+    <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Run History</div>
+    {[...entries].reverse().map((e, i) => {
+      const sc = e.posture_score||0;
+      const scColor = sc >= 70?'#10b981':sc >= 40?'#eab308':'#ef4444';
+      return <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 12px',marginBottom:4,background:'rgba(255,255,255,0.02)',borderRadius:6,fontSize:13}}>
+        <span className="mono" style={{color:'#6b7280',minWidth:24}}>#{e.total_runs||entries.length-i}</span>
+        <span className="mono" style={{color:scColor,fontWeight:700,minWidth:30}}>{sc}</span>
+        <span style={{color:'#9ca3af',flex:1}}>{e.finding_count} findings</span>
+        {e.new_count > 0 && <span style={{color:'#ef4444',fontSize:11}}>+{e.new_count} new</span>}
+        {e.resolved_count > 0 && <span style={{color:'#10b981',fontSize:11}}>-{e.resolved_count} resolved</span>}
+        <span className="mono" style={{color:'#4b5563',fontSize:11}}>${(e.cost||0).toFixed(3)}</span>
+        <span style={{color:e.signature?'#6ee7b7':'#4b5563',fontSize:10}}>{e.signature?'\uD83D\uDD0F':''}</span>
+      </div>;
+    })}
+  </div>;
+}
+
+
 function App() {
   const [rawLines,setRawLines]=useState(null);
   const [filter, setFilter] = useState('');
   const [dragging, setDragging] = useState(false);
   const [tab, setTab] = useState('attestation');
   const [reports, setReports] = useState([]);
+  const [ledger, setLedger] = useState([]);
   const fileRef = useRef(null);
 
   const handleFile = (file) => {
@@ -400,9 +509,10 @@ function App() {
     reader.readAsText(file);
   };
 
-  // Fetch reports on mount
+  // Fetch reports and ledger on mount
   React.useEffect(() => {
     fetch('/api/reports').then(r=>r.ok?r.json():[]).then(setReports).catch(()=>{});
+    fetch('/api/ledger').then(r=>r.ok?r.json():[]).then(setLedger).catch(()=>{});
   }, []);
 
   const events = useMemo(() => rawLines ? parseEvents(rawLines) : [], [rawLines]);
@@ -447,7 +557,7 @@ function App() {
 
       {/* Tab Bar */}
       <div style={{display:'flex',gap:2,marginBottom:24}}>
-        {[{id:'attestation',label:'Attestation',icon:'\u26A1'},{id:'findings',label:'Findings',icon:'\uD83D\uDD0D'}].map(t =>
+        {[{id:'attestation',label:'Attestation',icon:'\u26A1'},{id:'findings',label:'Findings',icon:'\uD83D\uDD0D'},{id:'hardening',label:'Hardening',icon:'\uD83D\uDEE1\uFE0F'}].map(t =>
           <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'10px 20px',borderRadius:6,border:'1px solid '+(tab===t.id?'rgba(245,158,11,0.4)':'rgba(255,255,255,0.08)'),background:tab===t.id?'rgba(245,158,11,0.1)':'rgba(255,255,255,0.02)',color:tab===t.id?'#f59e0b':'#6b7280',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all 0.2s'}}>
             {t.icon} {t.label} {t.id==='findings' && reports.length > 0 ? <span className="mono" style={{marginLeft:4,fontSize:11}}>({reports.length})</span> : null}
           </button>
@@ -489,6 +599,8 @@ function App() {
       </>}
 
       {tab === 'findings' && <FindingsTab reports={reports}/>}
+
+      {tab === 'hardening' && <HardeningTab entries={ledger}/>}
 
       {/* Footer */}
       <div style={{marginTop:40,paddingTop:20,borderTop:'1px solid rgba(255,255,255,0.04)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>

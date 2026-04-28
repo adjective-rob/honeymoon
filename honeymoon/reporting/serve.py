@@ -28,6 +28,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.serve_audit()
         elif self.path == "/api/reports":
             self.serve_reports()
+        elif self.path == "/api/ledger":
+            self.serve_ledger()
         elif self.path.startswith("/api/report/"):
             self.serve_single_report(self.path.split("/api/report/")[1])
         elif self.path == "/" or self.path == "/index.html":
@@ -85,6 +87,22 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         self.wfile.write(json.dumps(reports).encode())
+
+    def serve_ledger(self):
+        """Return hardening ledger entries."""
+        ledger_file = self.repo_path / ".honeymoon" / "ledger.jsonl"
+        entries = []
+        if ledger_file.exists():
+            for line in ledger_file.read_text().strip().splitlines():
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(json.dumps(entries).encode())
 
     def serve_single_report(self, report_id: str):
         """Serve an HTML report file directly."""
