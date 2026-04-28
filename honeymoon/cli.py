@@ -1010,6 +1010,135 @@ def doctor():
         sys.exit(1)
 
 @app.command()
+def simulate(
+    repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),
+    scenario: Optional[str] = typer.Option(None, "--scenario", "-s", help="Attack scenario to simulate"),
+    open_report: bool = typer.Option(True, "--open/--no-open", help="Auto-open HTML report in browser"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
+):
+    """Red/Blue adversarial simulation — trace exploitation chains with signed events."""
+    from honeymoon.mission import load_mission
+    from honeymoon.report import write_report
+
+    _print_banner()
+    _configure_logging(verbose)
+
+    repo = repo.resolve()
+    if not repo.exists():
+        console.print(f"[red]Repository not found: {repo}[/]")
+        raise typer.Exit(1)
+
+    config = load_config(repo)
+    mission = load_mission("simulate", repo)
+
+    if not scenario:
+        scenario = _auto_detect_attack_scenario(repo)
+        console.print(f"[dim]Auto-detected scenario: {scenario[:100]}...[/]\n")
+
+    console.print(f"[bold red]Mission: {mission.name}[/]")
+    console.print(f"[dim]Scenario: {scenario}[/]\n")
+
+    task = Task.from_interactive(scenario)
+
+    AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
+
+    controller = Controller(
+        repo_path=repo,
+        config=config,
+        auto_approve=True,
+        mission=mission,
+    )
+
+    result = controller.run(task)
+
+    findings = result.get("implementation", {})
+    verification = result.get("security", {})
+    budget = result.get("budget", {})
+
+    report_path = write_report(
+        repo_path=repo,
+        run_id=result.get("run_id", task.task_id),
+        mission_name="simulate",
+        objective=scenario,
+        findings=findings,
+        verification=verification,
+        budget=budget,
+    )
+
+    finding_list = findings.get("findings", [])
+    if finding_list:
+        _emit_prelude_decisions(repo, finding_list, scenario)
+
+    console.print("\n[bold red]🎯 Simulation complete.[/]")
+    console.print(f"  [bold]Report:[/]      {report_path}")
+    console.print(f"  [bold]Chains:[/]      {len(finding_list)} attack chains traced")
+    if finding_list:
+        for f in finding_list:
+            sev = f.get("severity", "info").upper()
+            sev_color = {"CRITICAL": "red", "HIGH": "red", "MEDIUM": "yellow", "LOW": "blue", "INFO": "dim"}.get(sev, "dim")
+            console.print(f"    [{sev_color}]{sev}[/] {f.get('title', '?')}")
+    verdict = verification.get("verdict", "?") if verification else "?"
+    verdict_map = {"pass": "confirmed", "warn": "partial", "block": "disputed"}
+    console.print(f"  [bold]Blue Team:[/]   {verdict_map.get(verdict, verdict)}")
+    console.print(f"  [bold]Cost:[/]       ${budget.get('estimated_cost', 0):.4f}")
+
+    html_path = report_path.with_suffix(".html")
+    if open_report and html_path.exists():
+        import webbrowser
+        webbrowser.open(f"file://{html_path}")
+
+
+def _auto_detect_attack_scenario(repo: Path) -> str:
+    """Auto-detect an attack scenario based on repo contents."""
+    has_auth = False
+    has_api = False
+    has_db = False
+    has_shell = False
+
+    for f in repo.rglob("*.py"):
+        if any(exc in f.parts for exc in [".git", "node_modules", ".venv", "__pycache__", ".honeymoon"]):
+            continue
+        try:
+            content = f.read_text(errors="ignore")[:5000]
+            if "auth" in content.lower() or "jwt" in content.lower() or "token" in content.lower():
+                has_auth = True
+            if "fastapi" in content.lower() or "flask" in content.lower() or "django" in content.lower():
+                has_api = True
+            if "sql" in content.lower() or "database" in content.lower() or "supabase" in content.lower():
+                has_db = True
+            if "subprocess" in content or "os.system" in content or "shell=True" in content:
+                has_shell = True
+        except Exception:
+            continue
+
+    for f in repo.rglob("*.ts"):
+        if any(exc in f.parts for exc in [".git", "node_modules", ".honeymoon"]):
+            continue
+        try:
+            content = f.read_text(errors="ignore")[:5000]
+            if "auth" in content.lower() or "session" in content.lower():
+                has_auth = True
+            if "fetch(" in content or "axios" in content:
+                has_api = True
+        except Exception:
+            continue
+
+    parts = ["Simulate an attacker targeting this codebase."]
+    if has_shell:
+        parts.append("Focus on command injection: trace all paths from user input to subprocess/shell execution.")
+    if has_auth:
+        parts.append("Attempt auth bypass: find ways to access protected resources without valid credentials.")
+    if has_db:
+        parts.append("Test for SQL injection and data exfiltration paths.")
+    if has_api:
+        parts.append("Map the API attack surface: identify unprotected endpoints and input validation gaps.")
+    if not any([has_shell, has_auth, has_db, has_api]):
+        parts.append("Identify the primary attack surface and trace the most dangerous exploitation chain from external input to sensitive operations.")
+
+    return " ".join(parts)
+
+
+@app.command()
 def deep(
     repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),
     fix: bool = typer.Option(False, "--fix", help="Enable autonomous remediation (creates PRs)"),

@@ -10,6 +10,8 @@ Findings are structured and sized for HONEYMOON tasks.
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
@@ -142,6 +144,9 @@ class Scanner:
             result.findings.extend(self._check_complex_functions(file_path, rel, source, lang))
             result.findings.extend(self._check_hardcoded_secrets(file_path, rel, source))
             result.findings.extend(self._check_large_files(file_path, rel, source))
+
+        # Dependency vulnerability scan (runs once, not per-file)
+        result.findings.extend(self._check_dependency_vulns())
 
         return result
 
@@ -371,4 +376,123 @@ class Scanner:
                 description=f"File is {len(lines)} lines long. Consider breaking it down.",
                 severity="medium"
             ))
+
+    # -----------------------------------------------------------------------
+    # Check: Dependency Vulnerabilities
+    # -----------------------------------------------------------------------
+
+    def _check_dependency_vulns(self) -> list[Finding]:
+        """Run dependency audit tools if available. Checks pip-audit, npm audit, cargo audit."""
+        findings = []
+
+        # Python: pip-audit or safety
+        if (self.repo_path / "requirements.txt").exists() or (self.repo_path / "pyproject.toml").exists():
+            findings.extend(self._run_pip_audit())
+
+        # Node: npm audit
+        if (self.repo_path / "package.json").exists():
+            findings.extend(self._run_npm_audit())
+
+        # Rust: cargo audit
+        if (self.repo_path / "Cargo.toml").exists():
+            findings.extend(self._run_cargo_audit())
+
         return findings
+
+    def _run_pip_audit(self) -> list[Finding]:
+        """Run pip-audit if available."""
+        if not shutil.which("pip-audit"):
+            return []
+        try:
+            proc = subprocess.run(
+                ["pip-audit", "--format", "json", "--desc"],
+                cwd=self.repo_path,
+                capture_output=True, text=True, timeout=60,
+            )
+            if proc.returncode == 0 and not proc.stdout.strip():
+                return []
+            import json
+            vulns = json.loads(proc.stdout) if proc.stdout.strip() else []
+            return [
+                Finding(
+                    kind="dependency_vuln",
+                    file="requirements.txt",
+                    line=1,
+                    symbol=v.get("name", "unknown"),
+                    description=(
+                        f"{v.get('name')}=={v.get('version')}: "
+                        f"{v.get('vulns', [{}])[0].get('id', 'CVE-?')} — "
+                        f"{v.get('vulns', [{}])[0].get('description', 'Known vulnerability')[:200]}"
+                    ),
+                    severity="high",
+                    context=f"Fix: upgrade to {v.get('vulns', [{}])[0].get('fix_versions', ['latest'])}",
+                )
+                for v in vulns if v.get("vulns")
+            ]
+        except Exception:
+            return []
+
+    def _run_npm_audit(self) -> list[Finding]:
+        """Run npm audit if available."""
+        if not shutil.which("npm"):
+            return []
+        try:
+            proc = subprocess.run(
+                ["npm", "audit", "--json"],
+                cwd=self.repo_path,
+                capture_output=True, text=True, timeout=60,
+            )
+            import json
+            try:
+                data = json.loads(proc.stdout) if proc.stdout.strip() else {}
+            except json.JSONDecodeError:
+                return []
+            vulns = data.get("vulnerabilities", {})
+            results = []
+            for name, info in list(vulns.items())[:20]:
+                sev = info.get("severity", "low")
+                sev_map = {"critical": "high", "high": "high", "moderate": "medium", "low": "low"}
+                results.append(Finding(
+                    kind="dependency_vuln",
+                    file="package.json",
+                    line=1,
+                    symbol=name,
+                    description=f"{name}: {sev} severity — {info.get('title', 'Known vulnerability')[:200]}",
+                    severity=sev_map.get(sev, "medium"),
+                ))
+            return results
+        except Exception:
+            return []
+
+    def _run_cargo_audit(self) -> list[Finding]:
+        """Run cargo audit if available."""
+        if not shutil.which("cargo-audit"):
+            return []
+        try:
+            proc = subprocess.run(
+                ["cargo", "audit", "--json"],
+                cwd=self.repo_path,
+                capture_output=True, text=True, timeout=60,
+            )
+            import json
+            try:
+                data = json.loads(proc.stdout) if proc.stdout.strip() else {}
+            except json.JSONDecodeError:
+                return []
+            results = []
+            for vuln in data.get("vulnerabilities", {}).get("list", []):
+                advisory = vuln.get("advisory", {})
+                results.append(Finding(
+                    kind="dependency_vuln",
+                    file="Cargo.toml",
+                    line=1,
+                    symbol=advisory.get("package", "unknown"),
+                    description=(
+                        f"{advisory.get('package')}: {advisory.get('id', 'RUSTSEC-?')} — "
+                        f"{advisory.get('title', 'Known vulnerability')[:200]}"
+                    ),
+                    severity="high",
+                ))
+            return results
+        except Exception:
+            return []
