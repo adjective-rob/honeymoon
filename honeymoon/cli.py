@@ -1306,7 +1306,6 @@ def deep(
 ):
     """Deep scan — audit + investigate + SPEC.md. Add --fix for autonomous remediation."""
     from honeymoon.auditor import Scanner
-    from honeymoon.mission import load_mission
     from honeymoon.report import write_report, write_spec
 
     _print_banner()
@@ -1326,38 +1325,88 @@ def deep(
         f"{len(scan_result.findings)} static findings[/]"
     )
 
-    # Build focused objective from audit findings
-    audit_summary = _build_audit_context(scan_result)
+    # Build investigation lanes from audit findings
+    lanes = _build_investigation_lanes(repo, scan_result)
+    console.print(f"  [dim]{len(lanes)} investigation lanes identified[/]")
 
-    # Phase 2: Investigation
-    console.print("\n[bold cyan]Phase 2 · INVESTIGATE[/] [dim]Agent-powered forensics...[/]")
-    config = load_config(repo)
-    mission = load_mission("investigate", repo)
+    # Phase 2: Parallel investigation
+    console.print(f"\n[bold cyan]Phase 2 · INVESTIGATE[/] [dim]{len(lanes)} parallel lanes...[/]")
+    for i, lane in enumerate(lanes):
+        console.print(f"  [dim]Lane {i+1}: {lane['label']}[/]")
 
-    objective = _auto_detect_objective(repo)
-    if audit_summary:
-        objective += f" Additionally, the static scanner found: {audit_summary}"
-
-    task = Task.from_interactive(objective)
     AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
 
-    controller = Controller(
-        repo_path=repo,
-        config=config,
-        auto_approve=True,
-        mission=mission,
-    )
+    all_findings: list[dict] = []
+    all_verifications: list[dict] = []
+    total_budget: dict = {"total_tokens": 0, "estimated_cost": 0, "call_count": 0}
+    last_run_id = ""
 
-    result = controller.run(task)
+    import concurrent.futures
+    def _run_lane(lane: dict) -> dict:
+        from honeymoon.mission import load_mission as _load
+        m = _load("investigate", repo)
+        t = Task.from_interactive(lane["objective"])
+        c = Controller(repo_path=repo, config=load_config(repo), auto_approve=True, mission=m)
+        return c.run(t)
 
-    findings = result.get("implementation", {})
-    verification = result.get("security", {})
-    budget = result.get("budget", {})
+    # Run lanes in parallel (max 3 concurrent)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(3, len(lanes))) as executor:
+        futures = {executor.submit(_run_lane, lane): lane for lane in lanes}
+        for future in concurrent.futures.as_completed(futures):
+            lane = futures[future]
+            try:
+                result = future.result()
+                impl = result.get("implementation", {})
+                lane_findings = impl.get("findings", [])
+                verification = result.get("security", {})
+                budget = result.get("budget", {})
+
+                all_findings.extend(lane_findings)
+                if verification:
+                    all_verifications.append(verification)
+                total_budget["total_tokens"] += budget.get("total_tokens", 0)
+                total_budget["estimated_cost"] += budget.get("estimated_cost", 0)
+                total_budget["call_count"] += budget.get("call_count", 0)
+                last_run_id = result.get("run_id", "")
+
+                console.print(
+                    f"  [green]✓[/] {lane['label']}: "
+                    f"{len(lane_findings)} findings, ${budget.get('estimated_cost', 0):.3f}"
+                )
+            except Exception as e:
+                console.print(f"  [red]✗[/] {lane['label']}: {e}")
+
+    # Merge findings — deduplicate by title
+    seen_titles: set[str] = set()
+    merged_findings: list[dict] = []
+    for f in all_findings:
+        title = f.get("title", "").lower().strip()
+        if title not in seen_titles:
+            seen_titles.add(title)
+            merged_findings.append(f)
+
+    # Merge verification — worst verdict wins
+    verdict_priority = {"block": 0, "disputed": 0, "warn": 1, "partial": 1, "pass": 2, "confirmed": 2}
+    merged_verification = all_verifications[0] if all_verifications else {}
+    for v in all_verifications[1:]:
+        if verdict_priority.get(v.get("verdict", "pass"), 2) < verdict_priority.get(merged_verification.get("verdict", "pass"), 2):
+            merged_verification = v
+
+    findings = {
+        "summary": f"Deep scan across {len(lanes)} parallel investigation lanes. {len(merged_findings)} unique findings.",
+        "findings": merged_findings,
+    }
+    verification = merged_verification
+    budget = total_budget
+
+    # Build combined objective for report
+    objective = f"Deep scan: {', '.join(lane['label'] for lane in lanes)}"
+    run_id = last_run_id or f"deep-{len(lanes)}lanes"
 
     # Write investigation report
     report_path = write_report(
         repo_path=repo,
-        run_id=result.get("run_id", task.task_id),
+        run_id=run_id,
         mission_name="deep-scan",
         objective=objective,
         findings=findings,
@@ -1373,7 +1422,7 @@ def deep(
     console.print("\n[bold cyan]Phase 3 · SPEC[/] [dim]Remediation plan...[/]")
     spec_path = write_spec(
         repo_path=repo,
-        run_id=result.get("run_id", task.task_id),
+        run_id=run_id,
         investigation_findings=finding_list,
         audit_findings=scan_result.findings,
         verification=verification,
@@ -1385,9 +1434,10 @@ def deep(
         _run_remediation(repo, finding_list, scan_result.findings, verbose)
 
     # Summary
-    console.print("\n[bold green]🍯 Deep scan complete.[/]")
+    console.print(f"\n[bold green]🍯 Deep scan complete.[/] ({len(lanes)} parallel lanes)")
     console.print(f"  [bold]Report:[/]    {report_path}")
     console.print(f"  [bold]SPEC:[/]      {spec_path}")
+    console.print(f"  [bold]Lanes:[/]     {len(lanes)}")
     console.print(f"  [bold]Findings:[/]  {len(finding_list)} investigation + {len(scan_result.findings)} static")
     if finding_list:
         for f in finding_list:
@@ -1400,6 +1450,62 @@ def deep(
     if open_report and html_path.exists():
         import webbrowser
         webbrowser.open(f"file://{html_path}")
+
+
+def _build_investigation_lanes(repo: Path, scan_result) -> list[dict]:
+    """Build parallel investigation lanes from audit findings and repo analysis."""
+    lanes = []
+
+    # Lane 1: Security boundaries (always runs)
+    lanes.append({
+        "label": "Security Boundaries",
+        "objective": (
+            "Trace every path from user input to shell execution, file system access, "
+            "or network calls. Identify gaps in input validation, authentication, and "
+            "authorization. Check for command injection, path traversal, and SSRF vectors."
+        ),
+    })
+
+    # Lane 2: Secrets & credentials
+    secret_findings = [f for f in scan_result.findings if f.kind == "hardcoded_secret"]
+    dep_vuln_findings = [f for f in scan_result.findings if f.kind == "dependency_vuln"]
+
+    if secret_findings or dep_vuln_findings:
+        parts = ["Check for hardcoded credentials, API keys, tokens, and secrets in source code and configuration."]
+        if dep_vuln_findings:
+            sample = [f.description[:80] for f in dep_vuln_findings[:3]]
+            parts.append(f"Known vulnerable dependencies: {'; '.join(sample)}")
+        lanes.append({
+            "label": "Secrets & Dependencies",
+            "objective": " ".join(parts),
+        })
+
+    # Lane 3: Data flow & trust zones
+    has_complex = any(f.kind == "complex_function" for f in scan_result.findings)
+    has_large = any(f.kind == "large_file" for f in scan_result.findings)
+    if has_complex or has_large or len(scan_result.findings) > 20:
+        lanes.append({
+            "label": "Data Flow & Trust Zones",
+            "objective": (
+                "Map trust boundaries between modules. Trace data flow from external inputs "
+                "through processing layers to storage or output. Identify where untrusted data "
+                "crosses trust boundaries without validation. Check serialization and deserialization "
+                "paths for injection risks."
+            ),
+        })
+
+    # If only 1 lane, add a general one to get more coverage
+    if len(lanes) == 1:
+        lanes.append({
+            "label": "General Audit",
+            "objective": (
+                "Review the codebase for common vulnerability patterns: unsafe deserialization, "
+                "hardcoded credentials, overly permissive file access, missing error handling "
+                "that leaks sensitive information, and any code that bypasses security controls."
+            ),
+        })
+
+    return lanes
 
 
 def _build_audit_context(scan_result) -> str:
