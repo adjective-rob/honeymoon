@@ -18,6 +18,7 @@ Plus utilities:
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -1760,6 +1761,38 @@ def _configure_logging(verbose: bool) -> None:
             level="WARNING",
             format="{message}",
         )
+
+
+# ---------------------------------------------------------------------------
+# MCP Server
+# ---------------------------------------------------------------------------
+
+
+@app.command(name="mcp")
+def mcp_serve():
+    """Start the MCP server (stdio transport) for tool integration."""
+    from honeymoon.mcp_server import run_server
+    run_server()
+
+
+@app.command(name="mcp-config")
+def mcp_config():
+    """Print MCP configuration JSON for easy integration."""
+    import json as _json
+
+    honeymoon_bin = Path(sys.executable).parent / "honeymoon"
+    if not honeymoon_bin.exists():
+        honeymoon_bin = Path(sys.executable)
+
+    config_obj = {
+        "mcpServers": {
+            "honeymoon": {
+                "command": str(honeymoon_bin),
+                "args": ["mcp"] if honeymoon_bin.name == "honeymoon" else ["-m", "honeymoon", "mcp"],
+            }
+        }
+    }
+    console.print(_json.dumps(config_obj, indent=2))
 
 
 # ---------------------------------------------------------------------------

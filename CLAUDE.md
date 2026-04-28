@@ -2,7 +2,7 @@
 
 ## Identity
 
-HONEYMOON is a local-first, repo-agnostic, multi-agent development engine. The Controller orchestrates a deterministic 7-agent pipeline. It never writes code. Agents are stateless between runs. State flows through Pydantic models (`TaskState`, `StepState`) and a mutable `PipelineState` bag.
+HONEYMOON is a local-first, repo-agnostic, multi-agent development and security engine. The Controller orchestrates a deterministic 7-agent pipeline for code changes, plus mission-based pipelines for investigation, simulation, and hardening. Every action is cryptographically signed.
 
 ## Critical Rules
 
@@ -16,36 +16,51 @@ HONEYMOON is a local-first, repo-agnostic, multi-agent development engine. The C
 
 ## Architecture
 
-### Pipeline (do not reorder or skip)
+### Development Pipeline (do not reorder or skip)
 
 ```
 Plan → Implement → Debug → Testgen → Security → Release → Archivist
 ```
 
-Each phase maps to an agent role, a runner function (in `agent_runners.py`), and a post-processing handler (in `step_handlers.py`). The pipeline is declared in `config.yaml` and iterated by `controller.py`.
+### Security Mission Pipelines
+
+```
+Investigate:  Scout (planner) → Analyst (read-only implementer) → Verifier (security)
+Simulate:     Threat Modeler → Red Team (read-only) → Blue Team
+Harden:       Simulate → Diff against ledger → Compute posture → Sign + append
+Deep:         Audit (static) → Parallel investigation lanes → Merge → SPEC.md
+```
+
+Missions are YAML profiles in `honeymoon/missions/`. They override agent prompts, tools, and pipeline steps without changing code.
 
 ### Decomposed Controller
 
-The Controller was decomposed from a 2100-line monolith into focused modules:
-
 | Module | Responsibility |
 |---|---|
-| `controller.py` (385 lines) | Pipeline loop, dispatch, startup/finalize |
+| `controller.py` | Pipeline loop, dispatch, startup/finalize |
 | `agent_runners.py` | Context building + agent invocation (one function per role) |
-| `step_handlers.py` | Post-processing per agent result → `HandlerSignal` (CONTINUE or EARLY_RETURN) |
-| `run_context.py` | `RunContext` dataclass — per-run shared state |
+| `step_handlers.py` | Post-processing per agent result → `HandlerSignal` |
+| `run_context.py` | `RunContext` dataclass — per-run shared state (includes mission) |
 | `lifecycle.py` | Startup checks, workspace creation, PR creation, session entry |
 | `task_state.py` | Canonical `TaskState` + `StepState` (structured working memory) |
+| `mission.py` | Mission profiles + agent overrides |
+| `ledger.py` | Append-only signed hardening ledger |
+| `report.py` | Report writer (md + json + html + SPEC) |
+| `daemon.py` | WebSocket + HTTP server for live dashboard |
+| `mcp_server.py` | MCP server exposing 8 tools for agent integration |
 
 ### Invariants
 
-- **Agents inherit from `BaseAgent`** (`agents/__init__.py`). Each implements `build_messages()` and `parse_response()`. Do not add logic to `BaseAgent.run()`.
-- **Context-Router pattern.** `TaskState.to_agent_summary(for_agent)` controls what each agent sees. Field visibility is driven by `AGENT_FIELDS` and `FIELD_CAPS` in `task_state.py`. Do not expand summaries without justification.
-- **EventBus is a global singleton** (`event_bus.py`). Events carry `run_id`, `action_id`, `metadata`. All tool executions and agent actions emit events. Do not bypass the bus.
-- **Workspace isolation uses git worktrees.** Agents never write to `main`. Do not change `Workspace.create()`, `Workspace.cleanup()`, or the worktree lifecycle.
-- **ToolExecutor enforces allowlist + blocklist** (`workspace/tools.py`). Blocked patterns are checked first. Commands are prefix-matched against `allowed_tools`. Do not weaken these checks.
-- **BoundaryEnforcer** (`governance/__init__.py`) gates protected paths behind `--allow-core`. Do not soften boundary checks.
-- **Router** (`router.py`) wraps LiteLLM with budget tracking, retry logic, and context monitoring. Agents never know which model backs them. Do not leak model names into agent prompts.
+- **Agents inherit from `BaseAgent`** (`agents/__init__.py`). Each implements `build_messages()` and `parse_response()`.
+- **Context-Router pattern.** `TaskState.to_agent_summary(for_agent)` controls what each agent sees.
+- **EventBus is a global singleton** (`event_bus.py`). All tool executions and agent actions emit events.
+- **Workspace isolation uses git worktrees.** Agents never write to `main`.
+- **ToolExecutor enforces allowlist + blocklist** (`workspace/tools.py`). `shell=False` with `shlex.split()`. Shell metacharacter detection before execution.
+- **BoundaryEnforcer** (`governance/__init__.py`) gates protected paths behind `--allow-core`.
+- **Router** (`router.py`) wraps LiteLLM with budget tracking (75% implementer, 40% security). Per-role budget enforcement.
+- **Read-only mode:** When `_mission_read_only` is set, implementer uses `INVESTIGATE_TOOLS` (no write tools), write-deadline breaker is disabled, read cap is 30.
+- **Forced submission:** Analyst and security agents are forced to submit on their final step.
+- **Report mode:** When mission `output_mode == "report"`, verifier "block" = "disputed" (doesn't halt), fast_mode is skipped, findings go to report not PR.
 
 ## File Ownership
 
@@ -55,113 +70,136 @@ High-coupling files. Read downstream consumers before editing.
 |---|---|
 | `controller.py` | Orchestrates pipeline. Calls into agent_runners, step_handlers, lifecycle. |
 | `agent_runners.py` | Builds every agent's context. Changes here alter what agents see. |
-| `step_handlers.py` | Post-processing for all 7 agents. Drives PipelineState mutations. |
-| `task_state.py` | `TaskState` is canonical. `AGENT_FIELDS` controls context routing for every agent. |
-| `agents/__init__.py` | `BaseAgent` + `AgentContext` + `AgentResult` — every agent depends on these shapes. |
-| `workspace/__init__.py` | Git worktree lifecycle. Breakage = data loss or orphaned branches. |
-| `workspace/tools.py` | `ToolExecutor` — the security boundary for all shell execution. |
-| `router.py` | Model routing + budget tracking. Breakage = runaway costs or silent failures. |
-| `event_bus.py` | Global singleton. Schema changes break all event consumers. |
-| `governance/__init__.py` | `BoundaryEnforcer`. Weakening = removing safety rails. |
-| `config.yaml` | Runtime defaults. Changing blocked_patterns or allowed_tools = security surface change. |
-| `registry.py` | Agent registry. Adding/removing agents must stay in sync with step_handlers + config.yaml pipeline. |
+| `step_handlers.py` | Post-processing for all agents. Drives PipelineState mutations. |
+| `task_state.py` | `TaskState` is canonical. `AGENT_FIELDS` controls context routing. |
+| `agents/__init__.py` | `BaseAgent` + `AgentContext` + `AgentResult`. |
+| `workspace/__init__.py` | Git worktree lifecycle. Auto-detects branch name. |
+| `workspace/tools.py` | `ToolExecutor` — security boundary. shell=False, metacharacter detection. |
+| `router.py` | Model routing + budget tracking. Role limits: implementer 75%, security 40%. |
+| `event_bus.py` | Global singleton. Schema changes break all consumers. |
+| `config.yaml` | Runtime defaults. Model: gpt-5.4-mini. Budget: 500K tokens / $1.00. |
+| `ledger.py` | Hardening ledger. Posture scoring, diff engine, Ed25519 signing. |
+| `report.py` | Report generation. write_report, write_spec, _write_html_report. |
+| `mcp_server.py` | MCP tool definitions. 8 tools for external agent integration. |
 
 ## Agents
 
-7 agents, all in `honeymoon/agents/`:
+7 development agents + mission-specific roles:
 
-| Role | Class | Model tier | Key behavior |
-|---|---|---|---|
-| `planner` | `PlannerAgent` | high | Agentic tool loop (max 10 iterations). Outputs ≤4 steps with code hints. |
-| `implementer` | `ImplementerAgent` | high | Agentic tool loop (step 10 write-deadline). Switchboard delegation. |
-| `debugger` | `DebuggerAgent` | high | Fix loop with thrash detection + cascading failure abort. Scope-locked. |
-| `testgen` | `TestGenAgent` | high | Single-shot. Generates one regression test. Skipped if doc_only. |
-| `security` | `SecurityAgent` | low | Agentic loop. Verdict: pass/warn/block. Block halts pipeline. |
-| `release` | `ReleaseAgent` | low | Single-shot. Version bump + changelog. |
-| `archivist` | `ArchivistAgent` | low | Single-shot. Writes ADR if change is significant. |
+| Role | Class | Key behavior |
+|---|---|---|
+| `planner` | `PlannerAgent` | Agentic tool loop (max 5 iterations). ≤4 steps. Field validators for dumb models. |
+| `implementer` | `ImplementerAgent` | Agentic loop. Complexity-gated budget (trivial=12, small=18, medium=30, large=45). Denial feedback on blocked commands. check_after_write waived after 3 denials. |
+| `debugger` | `DebuggerAgent` | Fix loop with thrash detection + cascading failure abort. Scope-locked. |
+| `testgen` | `TestGenAgent` | Single-shot. Generates one regression test. |
+| `security` | `SecurityAgent` | Agentic loop. Verdict: pass/warn/block. Forced submit on final step. |
+| `release` | `ReleaseAgent` | Single-shot. Version bump + changelog. |
+| `archivist` | `ArchivistAgent` | Single-shot. Writes ADR if significant. |
 
-## Circuit Breakers & Safety
-
-- **Planner step cap:** Plans >4 steps are rejected and replanned.
-- **Implementer write-deadline:** Forced `done` at step 10 if no real writes occurred.
-- **Debugger thrash detection:** Stops if the same fix is attempted twice.
-- **Cascading failure abort:** Debug loop exits if test failure count is increasing.
-- **Scope-locked debugger:** Only fixes tests broken by the current change, not pre-existing failures.
-- **Task quality gate:** Rejects vague objectives before pipeline starts.
-- **Budget enforcement:** Per-task limits (1M tokens / $10) with per-role percentages. Raises `BudgetExceededError`.
-- **Context monitor:** Proactively snips old messages when approaching model context window.
-
-## Config & Routing
-
-Models are configured in `config.yaml` under `routing:`. Current defaults:
-- **High tier:** `openai/gpt-5.4` (planner, implementer, debugger, testgen)
-- **Low tier:** `openai/gpt-5.4-mini` (auditor, security, release, archivist)
-
-Config merge order: built-in defaults → repo `.honeymoon/config.yaml` → profile override → env vars.
-
-## Codebase Understanding Stack
-
-Agents don't get raw files dumped on them. Context flows through layers:
-
-1. **RepoIndex** (`indexer.py`) — `git ls-files` + symbol extraction → routing map
-2. **SymbolIndex** (`symbols.py`) — tree-sitter AST search (optional, graceful degradation)
-3. **ScopeResolver** (`scope.py`) — dependency-aware file + signature resolution
-4. **PreludeContext** (`prelude.py`) — bridge to `prelude-context` CLI (architecture/constraints)
-5. **Brain** (`brain_writer.py`, `history.py`) — persistent learned heuristics across runs
+Mission roles (defined in YAML, reuse agent classes):
+- **Scout** (planner) — search plans, not execution plans
+- **Analyst** (implementer, read-only) — `INVESTIGATE_TOOLS` + `submit_findings`
+- **Verifier** (security) — spot-check references, submit verdict fast
+- **Threat Modeler** (planner) — attack plans
+- **Red Team** (implementer, read-only) — exploitation chains
+- **Blue Team** (security) — evaluates feasibility, suggests fixes
 
 ## CLI Commands
 
-Entry point: `honeymoon` (via `cli.py` / Typer).
-
 | Command | Purpose |
 |---|---|
-| `run` | Main pipeline. Flags: `--repo`, `--issue`, `--task-file`, `--allow-core`, `--auto-approve`, `--surgical`, `--auto-merge`, `--test`, `--verbose` |
-| `interactive` | Human-in-the-loop mode with approval gates |
-| `batch` | Parallel multi-task execution |
-| `status` | Show config, routing, API key availability |
-| `init` | Bootstrap `.honeymoon/` in a repo |
-| `history` | View previous runs |
-| `audit` | Scan repo for actionable improvements (Ouroboros) |
+| `deep` | Audit → parallel investigate → SPEC.md. `--fix` for remediation tasks. |
+| `harden` | Adversarial simulation + posture tracking. `--posture` for status. |
+| `simulate` | Red/Blue attack simulation with signed chains. |
+| `scan` | Quick investigate + auto-opens HTML report. |
+| `investigate` | Manual objective investigation with signed report. |
+| `audit` | Static analysis + dependency vulns (pip-audit/npm audit/cargo audit). |
+| `run` | Main dev pipeline. `--issue`, `--task-file`, `--surgical`, etc. |
+| `interactive` | Human-in-the-loop mode. |
+| `swarm` | Decompose + parallel execution. |
+| `batch` | Run multiple task files in parallel. |
+| `serve` | WebSocket daemon for live dashboard (port 4200 WS + 4201 HTTP). |
+| `mcp` | Start MCP server (stdio transport) for agent integration. |
+| `mcp-config` | Print MCP configuration JSON for Claude Desktop / MCP clients. |
+| `init` | Bootstrap `.honeymoon/` in a repository (positional arg). |
+| `status` | Check config, routing, API keys. |
+| `history` | View previous runs. |
+| `doctor` | Verify agent registry integrity. |
+
+## MCP Server
+
+`honeymoon/mcp_server.py` exposes 8 tools via MCP (stdio transport):
+
+| Tool | Type | Description |
+|---|---|---|
+| `honeymoon_scan` | subprocess | Quick investigation with findings |
+| `honeymoon_simulate` | subprocess | Red/Blue adversarial simulation |
+| `honeymoon_harden` | subprocess + ledger | Hardening run with posture diff |
+| `honeymoon_deep` | subprocess + audit | Full deep scan with parallel lanes |
+| `honeymoon_posture` | direct Python | Read-only posture score (free, instant) |
+| `honeymoon_audit` | direct Python | Static analysis (free, no LLM) |
+| `honeymoon_get_report` | direct Python | Get specific or latest report |
+| `honeymoon_get_ledger` | direct Python | Full hardening ledger history |
+
+Pipeline tools run via subprocess. Read-only tools call Python directly.
+
+Start: `honeymoon mcp` (stdio) or get config: `honeymoon mcp-config`
+
+## Dashboard
+
+Live dashboard in `dashboard/` (Next.js + Tailwind + Framer Motion + Lucide).
+
+| Component | What it shows |
+|---|---|
+| The Hive | Hexagonal agent cells, pulse when active |
+| Posture Gauge | Animated radial SVG with trend |
+| Command Bar | Scan, Simulate, Harden, Deep Scan buttons |
+| Event Stream tab | Real-time parsed events from daemon |
+| Reports tab | All investigation reports, expandable findings |
+| Findings panel | Latest findings with severity pills |
+| Hardening Ledger | Bar chart of posture over time |
+
+Daemon: `honeymoon serve --repo .` (WS 4200 + HTTP 4201)
+Frontend: `cd dashboard && pnpm dev` (port 3000)
+
+## Output Files
+
+| File | Purpose |
+|---|---|
+| `.honeymoon/reports/{id}.md` | Markdown investigation report |
+| `.honeymoon/reports/{id}.html` | Self-contained HTML report (SVG icons, print-friendly) |
+| `.honeymoon/reports/{id}.json` | Structured data for machine consumption |
+| `.honeymoon/reports/SPEC-{id}.md` | Signed remediation plan (deep only) |
+| `.honeymoon/ledger.jsonl` | Append-only signed hardening ledger |
+| `.honeymoon/logs/audit.jsonl` | Zephyr-signed event trail |
+| `.context/decisions.json` | Prelude decisions from medium+ findings |
+
+## Signing
+
+Three layers:
+1. **Pipeline events** — Zephyr hardware signing (or Ed25519 fallback) → `audit.jsonl`
+2. **Reports** — Ed25519 → `.md` attestation block
+3. **Ledger entries** — Ed25519 → `ledger.jsonl`
+
+## Config & Routing
+
+Default model: `openai/gpt-5.4-mini` (dumb model proof).
+Budget: 500K tokens / $1.00 per task.
+Role limits: implementer 75%, security 40%, planner 15%.
 
 ## Conventions
 
-- **Python 3.11+.** Type hints everywhere. Pydantic v2 for structured data.
-- **Ruff** for linting. Line length 100. Target `py311`.
-- **Loguru** for logging (`logger.info`, `logger.debug`, `logger.warning`). No `print()` in library code.
-- **Rich** for CLI output. Console output goes through `rich.console.Console`.
-- **Tests** live in `tests/`. Pytest. 32 test files, 136 tests. No test files outside `tests/`.
-- **ADRs** live in `docs/adr/`.
-- **Imports:** Absolute only (`from honeymoon.*`). No relative imports.
-
-## Testing
-
-- Every new public function gets a test.
-- Do not delete existing tests to make a change pass.
-- If a test fails after your change, fix the code — not the test — unless the test was wrong.
-- The suite is thin (136 tests). That makes each one more important, not less.
-
-## Adding a New Agent
-
-1. Create `agents/<role>.py` — subclass `BaseAgent`, implement `build_messages()` + `parse_response()`.
-2. Add to `registry.py` `AGENT_REGISTRY`.
-3. Add runner function in `agent_runners.py`.
-4. Add handler function in `step_handlers.py` `STEP_HANDLERS`.
-5. Add field routing in `task_state.py` `AGENT_FIELDS`.
-6. Add pipeline step in `config.yaml`.
-7. No controller edits required.
-
-## What "Optimize" Means Here
-
-- Reduce token consumption in agent prompts (context routing, not context hoarding).
-- Reduce redundant I/O or subprocess calls.
-- Tighten type safety or error handling.
-- Improve clarity of agent system prompts.
-- **Not:** rewrite modules, introduce new abstractions, add dependencies, or restructure the pipeline.
+- **Python 3.11+.** Type hints. Pydantic v2.
+- **Ruff** for linting. Line length 100.
+- **Loguru** for logging. No `print()` in library code.
+- **Rich** for CLI output.
+- **Tests** in `tests/`. 222 passing.
+- **Imports:** Absolute only (`from honeymoon.*`).
 
 ## Before You Start Any Task
 
-1. Read the specific files involved. Grep to understand call sites.
+1. Read the specific files involved.
 2. Identify which tests cover the code you're changing.
-3. State your plan (what changes, which files, why) before writing code.
+3. State your plan before writing code.
 4. Make the smallest change that satisfies the task.
 5. Run tests. Run linter. Confirm green before declaring done.
