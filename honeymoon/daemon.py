@@ -9,12 +9,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import shutil
 import subprocess
 import sys
 import threading
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 from loguru import logger
 
@@ -190,6 +193,39 @@ class HoneymoonDaemon:
         except Exception as e:
             return {"type": "verification", "report_id": report_id, "valid": False, "error": str(e)}
 
+    def _create_fix_task(self, opts: dict) -> Path:
+        """Write a remediation task YAML from a finding."""
+        title = opts.get("title", "unknown")
+        severity = opts.get("severity", "medium")
+        evidence = opts.get("evidence", "")
+        analysis = opts.get("analysis", "")
+
+        slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60]
+        task_id = f"fix-{severity}-{slug}"
+
+        task_data = {
+            "id": task_id,
+            "objective": f"Fix: {title}",
+            "constraints": [
+                "Do not break existing functionality",
+                "Run tests after changes",
+                f"Evidence: {evidence[:300]}",
+                f"Analysis: {analysis[:300]}",
+            ],
+            "acceptance": [
+                "The security finding is addressed",
+                "All existing tests still pass",
+            ],
+            "risk": "medium",
+        }
+
+        queue_dir = self.repo_path / ".honeymoon" / "tasks" / "queue"
+        queue_dir.mkdir(parents=True, exist_ok=True)
+        task_path = queue_dir / f"{task_id}.yaml"
+        task_path.write_text(yaml.dump(task_data, default_flow_style=False, sort_keys=False))
+        logger.info(f"[DAEMON] Fix task created: {task_path}")
+        return task_path
+
     def _broadcast(self, data: dict) -> None:
         """Broadcast a message to all connected WebSocket clients."""
         if not self._loop or not self.ws_clients:
@@ -248,6 +284,11 @@ class HoneymoonDaemon:
         elif action == "verify_report":
             report_id = cmd.get("options", {}).get("report_id", "")
             await websocket.send(json.dumps(self._verify_report(report_id), default=str))
+
+        elif action == "fix_finding":
+            opts = cmd.get("options", {})
+            task_path = self._create_fix_task(opts)
+            await websocket.send(json.dumps({"type": "fix_created", "path": str(task_path)}))
 
         elif action in ("scan", "simulate", "harden", "deep"):
             if self._running_command:

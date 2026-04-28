@@ -9,10 +9,13 @@ via subprocess, same pattern as daemon.py.  Tools that read state
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 from mcp.server.fastmcp import FastMCP
 
@@ -421,6 +424,245 @@ def honeymoon_get_ledger(repo_path: str) -> dict[str, Any]:
         "entries": summarized,
         "summary": posture_summary(repo),
     }
+
+
+# ---------------------------------------------------------------------------
+# Action tools (create tasks, verify, diff)
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def honeymoon_fix_finding(
+    repo_path: str,
+    finding_title: str,
+    finding_severity: str,
+    finding_evidence: str,
+    finding_analysis: str,
+    execute: bool = False,
+) -> dict[str, Any]:
+    """Generate a remediation task from a finding and optionally execute it.
+
+    Creates a task YAML in the queue directory that can be run with
+    ``honeymoon batch``.  If *execute* is True the pipeline runs immediately.
+
+    Args:
+        repo_path: Absolute path to the repository.
+        finding_title: Title of the finding to fix.
+        finding_severity: Severity level (critical/high/medium/low/info).
+        finding_evidence: Evidence text from the finding.
+        finding_analysis: Analysis text from the finding.
+        execute: If True, run the pipeline immediately after creating the task.
+
+    Returns:
+        Task path, task ID, execution status.
+    """
+    repo = Path(repo_path).resolve()
+    if not repo.exists():
+        return {"error": f"Repository not found: {repo}"}
+
+    slug = re.sub(r"[^a-z0-9]+", "-", finding_title.lower()).strip("-")[:60]
+    task_id = f"fix-{finding_severity}-{slug}"
+
+    task_data = {
+        "id": task_id,
+        "objective": f"Fix: {finding_title}",
+        "constraints": [
+            "Do not break existing functionality",
+            "Run tests after changes",
+            f"Evidence: {finding_evidence[:300]}",
+            f"Analysis: {finding_analysis[:300]}",
+        ],
+        "acceptance": [
+            "The security finding is addressed",
+            "All existing tests still pass",
+        ],
+        "risk": "medium",
+    }
+
+    queue_dir = repo / ".honeymoon" / "tasks" / "queue"
+    queue_dir.mkdir(parents=True, exist_ok=True)
+    task_path = queue_dir / f"{task_id}.yaml"
+    task_path.write_text(yaml.dump(task_data, default_flow_style=False, sort_keys=False))
+
+    result: dict[str, Any] = {
+        "task_path": str(task_path),
+        "task_id": task_id,
+        "executed": False,
+        "status": "queued",
+    }
+
+    if execute:
+        cmd = _honeymoon_cmd() + [
+            "run", "--repo", str(repo), "--local-task", "--auto-approve", "--verbose",
+        ]
+        try:
+            proc = subprocess.run(
+                cmd, capture_output=True, text=True, cwd=repo, timeout=600,
+            )
+            result["executed"] = True
+            result["status"] = "success" if proc.returncode == 0 else "failed"
+            result["stdout_tail"] = _tail(proc.stdout, 40)
+            if proc.returncode != 0:
+                result["stderr_tail"] = _tail(proc.stderr, 10)
+        except subprocess.TimeoutExpired:
+            result["status"] = "timeout"
+        except Exception as e:
+            result["status"] = f"error: {e}"
+
+    return result
+
+
+@mcp.tool()
+def honeymoon_verify_report(repo_path: str, report_id: str) -> dict[str, Any]:
+    """Verify a report's Ed25519 signature.
+
+    Loads the JSON report and its companion markdown, splits on the
+    attestation separator, and verifies the cryptographic signature.
+
+    Args:
+        repo_path: Absolute path to the repository.
+        report_id: Report ID (filename stem) to verify.
+
+    Returns:
+        Whether the signature is valid, plus the public key used.
+    """
+    repo = Path(repo_path).resolve()
+    if not repo.exists():
+        return {"error": f"Repository not found: {repo}"}
+
+    from honeymoon.signing import HiveSigner, HiveVerifier, SIGNING_AVAILABLE
+
+    reports_dir = repo / ".honeymoon" / "reports"
+    json_path = reports_dir / f"{report_id}.json"
+    md_path = reports_dir / f"{report_id}.md"
+
+    if not json_path.exists():
+        return {"valid": False, "public_key": None, "report_id": report_id, "error": "Report not found"}
+
+    try:
+        report_data = json.loads(json_path.read_text())
+        signature = report_data.get("signature")
+        if not signature:
+            return {"valid": False, "public_key": None, "report_id": report_id, "error": "Report is not signed"}
+
+        if md_path.exists():
+            md_content = md_path.read_text()
+            parts = md_content.split("\n---\n")
+            report_body = parts[0] if parts else md_content
+        else:
+            body = {k: v for k, v in report_data.items() if k != "signature"}
+            report_body = json.dumps(body, sort_keys=True, default=str)
+
+        if not SIGNING_AVAILABLE:
+            return {"valid": False, "public_key": None, "report_id": report_id, "error": "Signing not available"}
+
+        signer = HiveSigner.load(repo)
+        if signer:
+            valid = signer.verify(report_body.encode(), signature)
+            pub_key = signer.public_key_hex
+        else:
+            pub_path = repo / ".honeymoon" / "keys" / "verify.pub"
+            verifier = HiveVerifier.from_file(pub_path)
+            if not verifier:
+                return {"valid": False, "public_key": None, "report_id": report_id, "error": "No keys available"}
+            valid = verifier.verify(report_body.encode(), signature)
+            pub_key = pub_path.read_text().strip() if pub_path.exists() else None
+
+        return {"valid": valid, "public_key": pub_key, "report_id": report_id}
+    except Exception as e:
+        return {"valid": False, "public_key": None, "report_id": report_id, "error": str(e)}
+
+
+@mcp.tool()
+def honeymoon_diff_posture(
+    repo_path: str,
+    run_a: int = -2,
+    run_b: int = -1,
+) -> dict[str, Any]:
+    """Compare two hardening runs by their posture scores and findings.
+
+    Reads the ledger and computes the delta between two runs identified by
+    their list index (negative indices count from the end).
+
+    Args:
+        repo_path: Absolute path to the repository.
+        run_a: Ledger index of the first run (default -2, second-to-last).
+        run_b: Ledger index of the second run (default -1, latest).
+
+    Returns:
+        Scores for both runs, delta, new/resolved findings, and trend.
+    """
+    repo = Path(repo_path).resolve()
+    if not repo.exists():
+        return {"error": f"Repository not found: {repo}"}
+
+    from honeymoon.ledger import read_ledger
+
+    entries = read_ledger(repo)
+    if len(entries) < 2:
+        return {"error": f"Need at least 2 ledger entries, found {len(entries)}"}
+
+    try:
+        entry_a = entries[run_a]
+        entry_b = entries[run_b]
+    except IndexError:
+        return {"error": f"Invalid indices: run_a={run_a}, run_b={run_b} (ledger has {len(entries)} entries)"}
+
+    score_a = entry_a.get("posture_score", 0)
+    score_b = entry_b.get("posture_score", 0)
+    delta = round(score_b - score_a, 2)
+
+    findings_a = set(entry_a.get("new_findings", []) or [])
+    findings_b = set(entry_b.get("new_findings", []) or [])
+    resolved = list(findings_a - findings_b)
+    new = list(findings_b - findings_a)
+
+    if delta > 0:
+        trend = "improving"
+    elif delta < 0:
+        trend = "degrading"
+    else:
+        trend = "stable"
+
+    return {
+        "run_a_score": score_a,
+        "run_b_score": score_b,
+        "delta": delta,
+        "new_findings": new,
+        "resolved_findings": resolved,
+        "trend": trend,
+    }
+
+
+@mcp.tool()
+def honeymoon_get_spec(repo_path: str) -> dict[str, Any]:
+    """Get the latest SPEC.md content from the reports directory.
+
+    Finds the most recent SPEC-*.md file and returns its full contents.
+
+    Args:
+        repo_path: Absolute path to the repository.
+
+    Returns:
+        Path and content of the latest SPEC file, or an error.
+    """
+    repo = Path(repo_path).resolve()
+    if not repo.exists():
+        return {"error": f"Repository not found: {repo}"}
+
+    reports_dir = repo / ".honeymoon" / "reports"
+    if not reports_dir.exists():
+        return {"error": "No reports directory found. Run a deep scan first."}
+
+    specs = sorted(
+        reports_dir.glob("SPEC*.md"),
+        key=lambda f: f.stat().st_mtime,
+        reverse=True,
+    )
+    if not specs:
+        return {"error": "No SPEC files found. Run honeymoon_deep first."}
+
+    latest = specs[0]
+    return {"path": str(latest), "content": latest.read_text()}
 
 
 # ---------------------------------------------------------------------------

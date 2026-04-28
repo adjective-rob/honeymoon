@@ -8,7 +8,7 @@ import {
   ChevronRight, Lock, FileSearch, Zap, Activity,
   TrendingUp, TrendingDown, Minus, ScrollText,
   ExternalLink, Clock, DollarSign, FileCheck, ClipboardList,
-  ShieldCheck, Key, Fingerprint, BadgeCheck, Copy, Columns,
+  ShieldCheck, Key, Fingerprint, BadgeCheck, Copy, Columns, Wrench,
 } from "lucide-react";
 import { socket } from "@/lib/ws";
 import type { DaemonState, LedgerEntry, Finding, Report, TrustData, VerificationResult } from "@/lib/types";
@@ -469,8 +469,26 @@ function CommandBar({ onCommand, running }: { onCommand: (cmd: string) => void; 
 // ---------------------------------------------------------------------------
 function FindingPill({ finding }: { finding: Finding }) {
   const [open, setOpen] = useState(false);
+  const [fixToast, setFixToast] = useState<string | null>(null);
   const sev = SEV[finding.severity] || SEV.info;
   const Icon = sev.icon;
+
+  const handleFix = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    socket.send("fix_finding", {
+      title: finding.title,
+      severity: finding.severity,
+      evidence: finding.evidence,
+      analysis: finding.analysis,
+    });
+
+    // Optimistic toast — also listen for server confirmation
+    const slug = finding.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+    const taskFile = `fix-${finding.severity}-${slug}.yaml`;
+    setFixToast(`Task created: ${taskFile}`);
+    setTimeout(() => setFixToast(null), 4000);
+  }, [finding]);
+
   return (
     <div
       className="rounded-lg text-xs cursor-pointer transition-all"
@@ -504,6 +522,25 @@ function FindingPill({ finding }: { finding: Finding }) {
               {finding.analysis && (
                 <p className="text-[11px] text-zinc-400 leading-relaxed">{finding.analysis}</p>
               )}
+              <button
+                onClick={handleFix}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-medium transition-colors bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
+              >
+                <Wrench className="w-3 h-3" />
+                Generate Fix
+              </button>
+              <AnimatePresence>
+                {fixToast && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-2 py-1"
+                  >
+                    {fixToast}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
         )}
