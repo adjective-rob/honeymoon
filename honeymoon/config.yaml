@@ -23,8 +23,8 @@ fallbacks:
 # Budget + safety limits per task
 limits:
   max_fix_attempts: 3
-  max_tokens_per_task: 200000
-  max_dollars_per_task: 0.50
+  max_tokens_per_task: 500000
+  max_dollars_per_task: 1.00
   require_plan_review: true
   require_pr_review: true
 

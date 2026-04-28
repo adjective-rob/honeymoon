@@ -288,6 +288,49 @@ IMPLEMENTER_TOOLS = [
     },
 ]
 
+# Read-only tools for investigation missions — no write/edit/run tools, plus submit_findings
+WRITE_TOOL_NAMES = {"write_file", "replace_in_file", "patch_function", "rollback_file", "diff_preview", "run_check", "done", "ask_colleague"}
+
+INVESTIGATE_TOOLS = [t for t in IMPLEMENTER_TOOLS if t["function"]["name"] not in WRITE_TOOL_NAMES] + [
+    {
+        "type": "function",
+        "function": {
+            "name": "submit_findings",
+            "description": "Submit your investigation findings. Call this when your analysis is complete. This is REQUIRED — you must call this to finish.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "summary": {
+                        "type": "string",
+                        "description": "Executive summary of what you found (2-5 sentences)."
+                    },
+                    "findings": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string"},
+                                "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info"]},
+                                "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+                                "evidence": {"type": "string", "description": "File paths, line numbers, code snippets."},
+                                "analysis": {"type": "string", "description": "What it means and why it matters."}
+                            },
+                            "required": ["title", "severity", "confidence", "evidence", "analysis"]
+                        },
+                        "description": "List of findings with evidence."
+                    },
+                    "recommendations": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Actionable recommendations."
+                    }
+                },
+                "required": ["summary", "findings"]
+            }
+        }
+    },
+]
+
 
 # ---------------------------------------------------------------------------
 # Maximum lines returned by read_file before truncation kicks in.
@@ -384,10 +427,15 @@ Plan: {steps_text}
         check_after_write = False  # True once a write happens, reset when run_check passes
         check_denial_count = 0  # Track consecutive run_check denials
         total_tokens = 0
+        is_read_only = getattr(self, "_mission_read_only", False)
+        active_tools = INVESTIGATE_TOOLS if is_read_only else IMPLEMENTER_TOOLS
         fast_mode = context.extra.get("fast_mode", False)
         complexity = context.extra.get("estimated_complexity", "medium")
-        complexity_budget = {"trivial": 12, "small": 18, "medium": 30, "large": 45}
-        max_steps = complexity_budget.get(complexity, 30) if fast_mode else 60
+        if is_read_only:
+            max_steps = 20  # Investigations are read-only — tighter budget
+        else:
+            complexity_budget = {"trivial": 12, "small": 18, "medium": 30, "large": 45}
+            max_steps = complexity_budget.get(complexity, 30) if fast_mode else 60
         
         for step in range(max_steps):
             logger.debug(f"[PATCH] Loop Step {step+1}/{max_steps}...")
@@ -447,7 +495,7 @@ Plan: {steps_text}
             response = self.router.complete(
                 role=self.role,
                 messages=messages,
-                tools=IMPLEMENTER_TOOLS,
+                tools=active_tools,
                 **step_kwargs
             )
             
@@ -933,6 +981,32 @@ Plan: {steps_text}
                     else:
                         res = "Error: Tool executor not wired up."
                     messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
+
+                elif tc_name == "submit_findings":
+                    # Investigation mode exit — return structured findings
+                    bus.emit(
+                        event_type="agent.submit_findings",
+                        payload={
+                            "summary": tc_args.get("summary", ""),
+                            "finding_count": len(tc_args.get("findings", [])),
+                            "loop_steps": step + 1,
+                        },
+                        agent_id=self.role,
+                    )
+                    return {
+                        "changes": [],
+                        "tests_added": [],
+                        "commit_message": "investigate: findings submitted",
+                        "summary": tc_args.get("summary", "Investigation complete."),
+                        "findings": tc_args.get("findings", []),
+                        "recommendations": tc_args.get("recommendations", []),
+                        "_agent": "analyst",
+                        "_model": response.model,
+                        "_tokens": response.tokens_used,
+                        "_loop_tokens": total_tokens,
+                        "_cost": response.cost,
+                        "_messages": messages,
+                    }
 
                 elif tc_name == "done":
                     if check_after_write:

@@ -210,16 +210,28 @@ class Controller:
 
             ps = self._execute_pipeline(ctx, task, failure_context, result)
 
-            result = finalize(
-                ctx, task,
-                ps.plan, ps.impl, ps.rel, ps.sec,
-                ps.is_doc_only, ps.is_fast_mode,
-                ps.result, ps.pipeline_halted,
-            )
+            # Stash agent outputs for report-mode missions (investigate/monitor)
+            if self.mission and self.mission.output_mode == "report":
+                result["implementation"] = ps.impl or {}
+                result["security"] = ps.sec or {}
+                result["budget"] = ctx.router.budget.summary()
+                result["run_id"] = ctx.run_id
+                result["status"] = ps.result.get("status", "completed")
+            else:
+                result = finalize(
+                    ctx, task,
+                    ps.plan, ps.impl, ps.rel, ps.sec,
+                    ps.is_doc_only, ps.is_fast_mode,
+                    ps.result, ps.pipeline_halted,
+                )
 
         except BudgetExceededError as e:
             console.print(f"[red]💸 Budget exceeded: {e}[/]")
             result["status"] = "budget_exceeded"
+            # Preserve partial findings for report-mode missions
+            if self.mission and self.mission.output_mode == "report":
+                result.setdefault("budget", ctx.router.budget.summary())
+                result.setdefault("run_id", ctx.run_id)
         except KeyboardInterrupt:
             console.print("\n[yellow]⚡ Interrupted by human.[/]")
             result["status"] = "interrupted"
