@@ -8,7 +8,7 @@ import {
   ChevronRight, Lock, FileSearch, Zap, Activity,
   TrendingUp, TrendingDown, Minus, ScrollText,
   ExternalLink, Clock, DollarSign, FileCheck, ClipboardList,
-  ShieldCheck, Key, Fingerprint, BadgeCheck, Copy,
+  ShieldCheck, Key, Fingerprint, BadgeCheck, Copy, Columns,
 } from "lucide-react";
 import { socket } from "@/lib/ws";
 import type { DaemonState, LedgerEntry, Finding, Report, TrustData, VerificationResult } from "@/lib/types";
@@ -187,6 +187,234 @@ function EventStream({ events }: { events: StreamEvent[] }) {
         ))}
       </AnimatePresence>
       <div ref={endRef} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Parallel lane types + helpers
+// ---------------------------------------------------------------------------
+interface LaneInfo {
+  id: number;
+  name: string;
+  events: StreamEvent[];
+  status: "running" | "complete" | "failed";
+  findingCount: number;
+}
+
+const LANE_ACCENTS = [
+  { color: "#3b82f6", bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.25)" },
+  { color: "#a855f7", bg: "rgba(168,85,247,0.08)", border: "rgba(168,85,247,0.25)" },
+  { color: "#10b981", bg: "rgba(16,185,129,0.08)", border: "rgba(16,185,129,0.25)" },
+];
+
+function parseLaneIndex(line: string): number | null {
+  const m = line.match(/(?:Lane\s+(\d))|(?:-lane(\d))/i);
+  if (m) return parseInt(m[1] || m[2], 10);
+  return null;
+}
+
+function parseLaneName(line: string): string | null {
+  const m = line.match(/Lane\s+\d+:\s*(.+?)(?:\s*[-|]|$)/i);
+  return m ? m[1].trim() : null;
+}
+
+function detectDeepPhase(events: StreamEvent[]): "pre" | "parallel" | "post" {
+  let sawPhase2 = false;
+  let sawPhase3 = false;
+  for (const ev of events) {
+    const line = ev.line || ev.detail || "";
+    if (/Phase\s*2/i.test(line)) sawPhase2 = true;
+    if (/Phase\s*3/i.test(line)) sawPhase3 = true;
+  }
+  if (sawPhase3) return "post";
+  if (sawPhase2) return "parallel";
+  return "pre";
+}
+
+function buildLanes(events: StreamEvent[]): { shared: StreamEvent[]; lanes: Map<number, LaneInfo> } {
+  const shared: StreamEvent[] = [];
+  const lanes = new Map<number, LaneInfo>();
+
+  for (const ev of events) {
+    const line = ev.line || ev.detail || "";
+    const idx = parseLaneIndex(line);
+    if (idx === null) {
+      shared.push(ev);
+      continue;
+    }
+
+    if (!lanes.has(idx)) {
+      lanes.set(idx, {
+        id: idx,
+        name: parseLaneName(line) || `Investigation ${idx}`,
+        events: [],
+        status: "running",
+        findingCount: 0,
+      });
+    }
+    const lane = lanes.get(idx)!;
+
+    // Try to extract a better name from early lines
+    const nameCandidate = parseLaneName(line);
+    if (nameCandidate && lane.events.length < 3) {
+      lane.name = nameCandidate;
+    }
+
+    lane.events.push(ev);
+
+    // Detect completion or failure
+    if (/complete|finished|done/i.test(line) && new RegExp(`lane\\s*${idx}`, "i").test(line)) {
+      lane.status = "complete";
+    }
+    if (/fail|error|abort/i.test(line) && new RegExp(`lane\\s*${idx}`, "i").test(line)) {
+      lane.status = "failed";
+    }
+
+    // Count findings mentioned in lane output
+    const findingMatch = line.match(/(\d+)\s+finding/i);
+    if (findingMatch) {
+      lane.findingCount = parseInt(findingMatch[1], 10);
+    }
+  }
+
+  return { shared, lanes };
+}
+
+// ---------------------------------------------------------------------------
+// Parallel lane view
+// ---------------------------------------------------------------------------
+function LaneColumn({ lane, accent }: { lane: LaneInfo; accent: typeof LANE_ACCENTS[0] }) {
+  const endRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [lane.events.length]);
+
+  const StatusIcon = lane.status === "complete"
+    ? CheckCircle2
+    : lane.status === "failed"
+    ? XCircle
+    : Loader2;
+
+  const statusColor = lane.status === "complete"
+    ? "#10b981"
+    : lane.status === "failed"
+    ? "#ef4444"
+    : "#f59e0b";
+
+  return (
+    <div className="flex flex-col min-h-0 rounded-lg overflow-hidden"
+      style={{ background: "rgba(255,255,255,0.01)", border: `1px solid rgba(255,255,255,0.06)` }}
+    >
+      {/* Accent top border */}
+      <div className="h-0.5" style={{ background: accent.color }} />
+
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2" style={{ background: accent.bg }}>
+        <StatusIcon
+          className={`w-3.5 h-3.5 flex-shrink-0 ${lane.status === "running" ? "animate-spin" : ""}`}
+          style={{ color: statusColor }}
+        />
+        <span className="text-[11px] font-semibold truncate" style={{ color: accent.color }}>
+          Lane {lane.id}: {lane.name}
+        </span>
+        {lane.status === "complete" && lane.findingCount > 0 && (
+          <span
+            className="ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0"
+            style={{ background: accent.bg, color: accent.color, border: `1px solid ${accent.border}` }}
+          >
+            {lane.findingCount} finding{lane.findingCount !== 1 ? "s" : ""}
+          </span>
+        )}
+      </div>
+
+      {/* Mini event stream */}
+      <div className="flex-1 flex flex-col gap-px max-h-[380px] overflow-y-auto px-2 py-1 custom-scrollbar">
+        <AnimatePresence initial={false}>
+          {lane.events.slice(-60).map((ev, i) => {
+            const line = ev.line || ev.detail || "";
+            // Strip lane prefix for cleaner display
+            const cleaned = line
+              .replace(/^\d{2}:\d{2}:\d{2}\s*\|\s*\w+\s*\|\s*/, "")
+              .replace(/Lane\s+\d+:\s*/i, "")
+              .replace(/-lane\d+\s*/gi, "")
+              .trim();
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.12 }}
+                className="flex items-start gap-1.5 py-1 px-1 rounded hover:bg-white/[0.02] group"
+              >
+                <ChevronRight className="w-2.5 h-2.5 mt-0.5 flex-shrink-0 text-zinc-700" />
+                <span className="text-[10px] text-zinc-500 leading-relaxed font-mono truncate">
+                  {cleaned || line}
+                </span>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+        <div ref={endRef} />
+      </div>
+    </div>
+  );
+}
+
+function ParallelLaneView({ events }: { events: StreamEvent[] }) {
+  const phase = detectDeepPhase(events);
+  const { shared, lanes } = buildLanes(events);
+  const laneArray = Array.from(lanes.values()).sort((a, b) => a.id - b.id);
+  const laneCount = laneArray.length;
+
+  // Pre-parallel or post-parallel: show single stream
+  if (phase !== "parallel" || laneCount === 0) {
+    return <EventStream events={events} />;
+  }
+
+  const gridCols = laneCount >= 3 ? "grid-cols-3" : "grid-cols-2";
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Shared / pre-lane events */}
+      {shared.length > 0 && (
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-2">
+          <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 px-1">
+            <Activity className="w-3 h-3" /> Shared
+          </div>
+          <div className="flex flex-col gap-px max-h-[120px] overflow-y-auto custom-scrollbar">
+            {shared.slice(-20).map((ev, i) => {
+              const line = ev.line || ev.detail || "";
+              const cleaned = line.replace(/^\d{2}:\d{2}:\d{2}\s*\|\s*\w+\s*\|\s*/, "");
+              return (
+                <div key={i} className="flex items-start gap-1.5 py-1 px-1">
+                  <ChevronRight className="w-2.5 h-2.5 mt-0.5 flex-shrink-0 text-zinc-700" />
+                  <span className="text-[10px] text-zinc-500 leading-relaxed font-mono truncate">{cleaned}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Parallel lane indicator */}
+      <div className="flex items-center gap-2 px-1">
+        <Columns className="w-3.5 h-3.5 text-amber-500" />
+        <span className="text-[10px] text-amber-500 uppercase tracking-widest font-medium">
+          Parallel Investigation — {laneCount} lane{laneCount !== 1 ? "s" : ""}
+        </span>
+      </div>
+
+      {/* Lane columns */}
+      <div className={`grid ${gridCols} gap-3`}>
+        {laneArray.map((lane, i) => (
+          <LaneColumn
+            key={lane.id}
+            lane={lane}
+            accent={LANE_ACCENTS[i % LANE_ACCENTS.length]}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -928,6 +1156,8 @@ export default function Home() {
                       {connected ? "Events will stream here live" : "honeymoon serve --repo ."}
                     </p>
                   </div>
+                ) : running === "deep" && events.some((e) => parseLaneIndex(e.line || e.detail || "") !== null) ? (
+                  <ParallelLaneView events={events} />
                 ) : (
                   <EventStream events={events} />
                 )
