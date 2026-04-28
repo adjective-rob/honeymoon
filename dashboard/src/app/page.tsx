@@ -350,6 +350,17 @@ export default function Home() {
       socket.on("state", (data: DaemonState) => {
         setState(data);
         setRunning(data.running || null);
+        // Always fetch reports when we get state
+        fetchReports();
+      }),
+
+      // Handle reports response directly
+      socket.on("reports", (data: any) => {
+        if (data.reports?.length) {
+          const latest = data.reports[0];
+          if (latest?.findings?.length) setFindings(latest.findings);
+          if (latest?.summary) setLatestSummary(latest.summary);
+        }
       }),
 
       socket.on("*", (data: any) => {

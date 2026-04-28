@@ -324,10 +324,10 @@ class Router:
 
         role_limits = {
             "planner": 0.15,
-            "implementer": 0.60,
+            "implementer": 0.75,
             "debugger": 0.30,
             "auditor": 0.75,
-            "security": 0.30,
+            "security": 0.40,
             "release": 0.10,
             "archivist": 0.10,
         }
