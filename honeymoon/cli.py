@@ -898,6 +898,14 @@ def investigate(
     if finding_list:
         _emit_prelude_decisions(repo, finding_list, objective)
 
+    # Feed threat intelligence database
+    if finding_list:
+        from honeymoon.threat_intel import extract_patterns, ingest_patterns
+        patterns = extract_patterns(finding_list, repo.name, signer_key=None)
+        new_count = ingest_patterns(patterns)
+        if new_count:
+            console.print(f"  [bold]Intel:[/]     {new_count} new threat patterns added to global database")
+
     console.print("\n[bold green]🍯 Investigation complete.[/]")
     console.print(f"  [bold]Report:[/]    {report_path}")
     console.print(f"  [bold]Findings:[/]  {len(finding_list)}")
@@ -1087,6 +1095,18 @@ def harden(
         )
     console.print(f"  [dim]Scenario: {scenario[:80]}...[/]\n")
 
+    # Enrich scenario with cross-repo threat intelligence
+    from honeymoon.threat_intel import get_patterns_for_simulation
+    cross_repo_patterns = get_patterns_for_simulation(repo.name)[:5]
+    if cross_repo_patterns:
+        intel_lines = ["\n\n[Cross-repo threat intelligence — patterns seen in other repositories]:"]
+        for p in cross_repo_patterns:
+            intel_lines.append(
+                f"- [{p.severity.upper()}] {p.attack_surface}/{p.technique}: {p.description[:120]}"
+            )
+        scenario += "\n".join(intel_lines)
+        console.print(f"  [dim]Intel: {len(cross_repo_patterns)} cross-repo patterns injected[/]")
+
     task = Task.from_interactive(scenario)
     AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
 
@@ -1128,6 +1148,14 @@ def harden(
     # Persist to prelude
     if finding_list:
         _emit_prelude_decisions(repo, finding_list, scenario)
+
+    # Feed threat intelligence database
+    if finding_list:
+        from honeymoon.threat_intel import extract_patterns, ingest_patterns
+        patterns = extract_patterns(finding_list, repo.name, signer_key=None)
+        new_count = ingest_patterns(patterns)
+        if new_count:
+            console.print(f"  [bold]Intel:[/]     {new_count} new threat patterns added to global database")
 
     # Summary
     score = ledger_entry.get("posture_score", "?")
@@ -1198,6 +1226,18 @@ def simulate(
     console.print(f"[bold red]Mission: {mission.name}[/]")
     console.print(f"[dim]Scenario: {scenario}[/]\n")
 
+    # Enrich scenario with cross-repo threat intelligence
+    from honeymoon.threat_intel import get_patterns_for_simulation
+    cross_repo_patterns = get_patterns_for_simulation(repo.name)[:5]
+    if cross_repo_patterns:
+        intel_lines = ["\n\n[Cross-repo threat intelligence — patterns seen in other repositories]:"]
+        for p in cross_repo_patterns:
+            intel_lines.append(
+                f"- [{p.severity.upper()}] {p.attack_surface}/{p.technique}: {p.description[:120]}"
+            )
+        scenario += "\n".join(intel_lines)
+        console.print(f"  [dim]Intel: {len(cross_repo_patterns)} cross-repo patterns injected[/]")
+
     task = Task.from_interactive(scenario)
 
     AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
@@ -1228,6 +1268,14 @@ def simulate(
     finding_list = findings.get("findings", [])
     if finding_list:
         _emit_prelude_decisions(repo, finding_list, scenario)
+
+    # Feed threat intelligence database
+    if finding_list:
+        from honeymoon.threat_intel import extract_patterns, ingest_patterns
+        patterns = extract_patterns(finding_list, repo.name, signer_key=None)
+        new_count = ingest_patterns(patterns)
+        if new_count:
+            console.print(f"  [bold]Intel:[/]     {new_count} new threat patterns added to global database")
 
     console.print("\n[bold red]🎯 Simulation complete.[/]")
     console.print(f"  [bold]Report:[/]      {report_path}")
@@ -1414,6 +1462,14 @@ def deep(
     finding_list = findings.get("findings", [])
     if finding_list:
         _emit_prelude_decisions(repo, finding_list, objective)
+
+    # Feed threat intelligence database
+    if finding_list:
+        from honeymoon.threat_intel import extract_patterns, ingest_patterns
+        patterns = extract_patterns(finding_list, repo.name, signer_key=None)
+        new_count = ingest_patterns(patterns)
+        if new_count:
+            console.print(f"  [bold]Intel:[/]     {new_count} new threat patterns added to global database")
 
     # Phase 3: SPEC.md — remediation plan
     console.print("\n[bold cyan]Phase 3 · SPEC[/] [dim]Remediation plan...[/]")
@@ -1722,6 +1778,14 @@ def scan(
     finding_list = findings.get("findings", [])
     if finding_list:
         _emit_prelude_decisions(repo, finding_list, objective)
+
+    # Feed threat intelligence database
+    if finding_list:
+        from honeymoon.threat_intel import extract_patterns, ingest_patterns
+        patterns = extract_patterns(finding_list, repo.name, signer_key=None)
+        new_count = ingest_patterns(patterns)
+        if new_count:
+            console.print(f"  [bold]Intel:[/]     {new_count} new threat patterns added to global database")
 
     console.print("\n[bold green]🍯 Scan complete.[/]")
     console.print(f"  [bold]Report:[/]    {report_path}")

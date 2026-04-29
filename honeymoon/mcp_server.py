@@ -666,6 +666,90 @@ def honeymoon_get_spec(repo_path: str) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Threat intelligence tools (cross-repo pattern sharing)
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def honeymoon_threat_intel(
+    attack_surface: str = "",
+    min_severity: str = "",
+    repo: str = "",
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Query the global threat intelligence database.
+
+    Returns normalized attack patterns collected across all scanned repositories.
+    Filter by attack surface, minimum severity, or originating repo.
+
+    Args:
+        attack_surface: Filter by surface (shell_execution, authentication, serialization, file_access, web_rendering, network).
+        min_severity: Minimum severity threshold (critical, high, medium, low).
+        repo: Filter to patterns seen in this repo name.
+        limit: Max results to return (default 20).
+
+    Returns:
+        List of matching threat patterns with full metadata.
+    """
+    from honeymoon.threat_intel import query_patterns
+
+    patterns = query_patterns(
+        attack_surface=attack_surface or None,
+        min_severity=min_severity or None,
+        repo=repo or None,
+        limit=limit,
+    )
+    return {
+        "count": len(patterns),
+        "patterns": [_threat_pattern_to_dict(p) for p in patterns],
+    }
+
+
+@mcp.tool()
+def honeymoon_threat_intel_for_repo(repo_path: str) -> dict[str, Any]:
+    """Get threat patterns from other repos that this repo should check for.
+
+    Returns patterns seen in other repositories but not yet in this one.
+    This is the 'what should I look for?' query for cross-repo learning.
+
+    Args:
+        repo_path: Absolute path to the repository.
+
+    Returns:
+        Patterns from other repos ranked by severity and frequency.
+    """
+    repo = Path(repo_path).resolve()
+    if not repo.exists():
+        return {"error": f"Repository not found: {repo}"}
+
+    from honeymoon.threat_intel import get_patterns_for_simulation
+
+    patterns = get_patterns_for_simulation(repo.name)[:20]
+    return {
+        "repo": repo.name,
+        "count": len(patterns),
+        "patterns": [_threat_pattern_to_dict(p) for p in patterns],
+    }
+
+
+@mcp.tool()
+def honeymoon_threat_intel_stats() -> dict[str, Any]:
+    """Aggregate stats across all repos in the threat intelligence database.
+
+    Returns:
+        Total patterns, breakdown by attack surface and severity,
+        contributing repos, and most common patterns.
+    """
+    from honeymoon.threat_intel import get_stats
+    return get_stats()
+
+
+def _threat_pattern_to_dict(p: Any) -> dict[str, Any]:
+    """Convert a ThreatPattern to a JSON-safe dict."""
+    from dataclasses import asdict as _asdict
+    return _asdict(p)
+
+
+# ---------------------------------------------------------------------------
 # Server entry point
 # ---------------------------------------------------------------------------
 
