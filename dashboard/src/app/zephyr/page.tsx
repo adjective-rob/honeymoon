@@ -127,99 +127,177 @@ export default function ZephyrPage() {
           </div>
         </section>
 
-        {/* Diagram 2: Gatekeeper — Authority-Based Export Control */}
+        {/* Diagram 2: Gatekeeper — How It Actually Works */}
         <section className="mb-16">
-          <h2 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Gatekeeper: Authority-Based Export Control</h2>
+          <h2 className="text-sm font-bold text-zinc-500 uppercase tracking-widest mb-6">Gatekeeper: Git Pre-Push Enforcement</h2>
 
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-8 mb-6">
-            {/* Gatekeeper flow */}
-            <div className="flex items-start gap-6 mb-8">
-              {/* Left: Repository */}
-              <div className="flex-1">
-                <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.04] p-5 mb-4">
-                  <div className="text-sm font-semibold text-amber-400 mb-3 flex items-center gap-2">
-                    <GitBranch className="w-4 h-4" /> Repository
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs">
-                      <Lock className="w-3 h-3 text-zinc-500" />
-                      <span className="text-zinc-400">signing.key</span>
-                      <span className="text-zinc-600">(private, never leaves)</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <Fingerprint className="w-3 h-3 text-emerald-500" />
-                      <span className="text-zinc-400">verify.pub</span>
-                      <span className="text-zinc-600">(shareable)</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <FileCheck className="w-3 h-3 text-blue-400" />
-                      <span className="text-zinc-400">audit.jsonl</span>
-                      <span className="text-zinc-600">(signed events)</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <FileCheck className="w-3 h-3 text-blue-400" />
-                      <span className="text-zinc-400">reports/*.md</span>
-                      <span className="text-zinc-600">(signed reports)</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <FileCheck className="w-3 h-3 text-blue-400" />
-                      <span className="text-zinc-400">ledger.jsonl</span>
-                      <span className="text-zinc-600">(signed posture)</span>
-                    </div>
-                  </div>
+
+            {/* The real flow */}
+            <div className="flex items-center justify-between gap-3 mb-8 flex-wrap">
+              <div className="flex-1 min-w-[120px] text-center">
+                <div className="w-14 h-14 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-2">
+                  <GitBranch className="w-7 h-7 text-amber-500" />
+                </div>
+                <div className="text-xs font-semibold text-white">git push</div>
+                <div className="text-[10px] text-zinc-500">Developer pushes</div>
+              </div>
+
+              <ArrowRight className="w-4 h-4 text-zinc-700 flex-shrink-0" />
+
+              <div className="flex-1 min-w-[120px] text-center">
+                <div className="w-14 h-14 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mx-auto mb-2">
+                  <Fingerprint className="w-7 h-7 text-blue-400" />
+                </div>
+                <div className="text-xs font-semibold text-white">zephyr digest</div>
+                <div className="text-[10px] text-zinc-500">Hash all artifacts</div>
+              </div>
+
+              <ArrowRight className="w-4 h-4 text-zinc-700 flex-shrink-0" />
+
+              <div className="flex-1 min-w-[120px] text-center">
+                <div className="w-14 h-14 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mx-auto mb-2">
+                  <FileCheck className="w-7 h-7 text-purple-400" />
+                </div>
+                <div className="text-xs font-semibold text-white">sbof-export</div>
+                <div className="text-[10px] text-zinc-500">Bundle signatures</div>
+              </div>
+
+              <ArrowRight className="w-4 h-4 text-zinc-700 flex-shrink-0" />
+
+              <div className="flex-1 min-w-[120px] text-center">
+                <div className="w-14 h-14 rounded-full border-2 border-red-500/40 bg-red-500/10 flex items-center justify-center mx-auto mb-2">
+                  <Shield className="w-7 h-7 text-red-400" />
+                </div>
+                <div className="text-xs font-semibold text-red-400">GATEKEEPER</div>
+                <div className="text-[10px] text-zinc-500">Check trust policy</div>
+              </div>
+
+              <ArrowRight className="w-4 h-4 text-zinc-700 flex-shrink-0" />
+
+              <div className="flex-1 min-w-[120px] text-center">
+                <div className="w-14 h-14 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-2">
+                  <CheckCircle2 className="w-7 h-7 text-emerald-400" />
+                </div>
+                <div className="text-xs font-semibold text-white">Push allowed</div>
+                <div className="text-[10px] text-zinc-500">Or blocked (exit 1)</div>
+              </div>
+            </div>
+
+            {/* Pre-push hook code */}
+            <div className="rounded-xl bg-black/40 border border-white/[0.06] p-5 font-mono text-[11px] leading-relaxed mb-6">
+              <div className="text-zinc-500 mb-2"># .git/hooks/pre-push (installed by zephyr init-githooks)</div>
+              <div className="text-blue-400">echo</div> <span className="text-emerald-400">&quot;📦 Generating SBOF digest...&quot;</span><br/>
+              <span className="text-amber-400">zephyr digest</span> --output .zephyrci/digest.json<br/><br/>
+              <div className="text-blue-400">echo</div> <span className="text-emerald-400">&quot;📦 Exporting SBOF bundle...&quot;</span><br/>
+              <span className="text-amber-400">zephyr sbof-export</span> --digest .zephyrci/digest.json --out .zephyrci/sbof.json<br/><br/>
+              <div className="text-blue-400">echo</div> <span className="text-emerald-400">&quot;🛡️ Running Zephyr gatekeeper...&quot;</span><br/>
+              <span className="text-amber-400">zephyr gatekeeper</span> --input .zephyrci/sbof.json<br/><br/>
+              <span className="text-red-400">if</span> [ $? -ne 0 ]; <span className="text-red-400">then</span><br/>
+              <span className="pl-4 text-red-400">echo</span> <span className="text-red-300">&quot;❌ Gatekeeper failed. Push aborted.&quot;</span><br/>
+              <span className="pl-4 text-red-400">exit 1</span><br/>
+              <span className="text-red-400">fi</span>
+            </div>
+
+            {/* Trust policy */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="rounded-xl bg-black/40 border border-white/[0.06] p-5">
+                <div className="text-xs font-semibold text-zinc-300 mb-3 flex items-center gap-2">
+                  <Lock className="w-3.5 h-3.5 text-amber-500" />
+                  Trust Policy
+                  <span className="text-[10px] text-zinc-600 font-normal">~/.zephyr/trust-policy.yml</span>
+                </div>
+                <div className="font-mono text-[11px] leading-relaxed">
+                  <div className="text-amber-400">allowed_signers:</div>
+                  <div className="text-emerald-400 pl-4">- 1/QL5bc6bfAIWy3uJ1KYE...</div>
+                  <div className="text-zinc-600 pl-4"># ↑ your machine&apos;s public key</div>
                 </div>
               </div>
 
-              {/* Middle: Gatekeeper */}
-              <div className="flex flex-col items-center pt-4">
-                <div className="w-20 h-20 rounded-full border-2 border-red-500/40 bg-red-500/10 flex items-center justify-center mb-2">
-                  <Shield className="w-10 h-10 text-red-400" />
+              <div className="rounded-xl bg-black/40 border border-white/[0.06] p-5">
+                <div className="text-xs font-semibold text-zinc-300 mb-3 flex items-center gap-2">
+                  <Key className="w-3.5 h-3.5 text-emerald-500" />
+                  Your Identity
+                  <span className="text-[10px] text-zinc-600 font-normal">zephyr whoami</span>
                 </div>
-                <div className="text-xs font-bold text-red-400 uppercase tracking-widest">Gatekeeper</div>
-                <div className="text-[10px] text-zinc-500 text-center mt-1 max-w-[120px]">
-                  Checks authority before allowing export
+                <div className="font-mono text-[11px] leading-relaxed">
+                  <div className="text-zinc-500">🪪 Zephyr Identity:</div>
+                  <div className="text-emerald-400 pl-4">🔑 1/QL5bc6bfAIWy3uJ1KYE...</div>
                 </div>
-                <ChevronDown className="w-4 h-4 text-zinc-700 mt-2" />
+              </div>
+            </div>
+
+            {/* Pass vs Block */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                  <span className="font-semibold text-emerald-400 text-sm">Key in trust policy</span>
+                </div>
+                <div className="font-mono text-[11px] text-zinc-400 space-y-1">
+                  <div>🛡️ Running Zephyr gatekeeper...</div>
+                  <div className="text-emerald-400">✅ Zephyr gatekeeper passed.</div>
+                  <div className="text-emerald-400">Proceeding with push.</div>
+                </div>
               </div>
 
-              {/* Right: Export targets */}
-              <div className="flex-1 space-y-3 pt-2">
-                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.04] p-3 flex items-center gap-3">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                  <div>
-                    <div className="text-xs font-semibold text-emerald-400">Authorized Authority</div>
-                    <div className="text-[10px] text-zinc-500">Signed by key 56c5...71a5</div>
-                    <div className="text-[10px] text-emerald-600 mt-0.5">Export allowed → CI, dashboards, auditors</div>
-                  </div>
+              <div className="rounded-xl border border-red-500/20 bg-red-500/[0.04] p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <XCircle className="w-5 h-5 text-red-400" />
+                  <span className="font-semibold text-red-400 text-sm">Key NOT in trust policy</span>
                 </div>
-
-                <div className="rounded-lg border border-red-500/20 bg-red-500/[0.04] p-3 flex items-center gap-3">
-                  <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                  <div>
-                    <div className="text-xs font-semibold text-red-400">Unknown Authority</div>
-                    <div className="text-[10px] text-zinc-500">Signed by key a3f2...9b1c</div>
-                    <div className="text-[10px] text-red-600 mt-0.5">Export blocked → report stays in repo</div>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-red-500/20 bg-red-500/[0.04] p-3 flex items-center gap-3">
-                  <XCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
-                  <div>
-                    <div className="text-xs font-semibold text-red-400">Unsigned</div>
-                    <div className="text-[10px] text-zinc-500">No signature present</div>
-                    <div className="text-[10px] text-red-600 mt-0.5">Export blocked → cannot verify origin</div>
-                  </div>
+                <div className="font-mono text-[11px] text-zinc-400 space-y-1">
+                  <div>🛡️ Running Zephyr gatekeeper...</div>
+                  <div className="text-red-400">❌ Gatekeeper failed. Push aborted.</div>
+                  <div className="text-zinc-600"># git push exits with code 1</div>
+                  <div className="text-zinc-600"># files stay on the machine</div>
                 </div>
               </div>
             </div>
 
             <p className="text-sm text-zinc-400 leading-relaxed">
-              <strong className="text-zinc-300">The Gatekeeper</strong> is a policy layer that controls what leaves the repository.
-              Only reports and events signed by an <em>authorized authority</em> (a known public key) can be
-              exported to external systems — CI pipelines, compliance dashboards, shared drives, or auditor portals.
-              Reports signed by unknown keys or unsigned reports are blocked from export.
-              This ensures that only verified, trusted intelligence leaves the security boundary of the repository.
+              <strong className="text-zinc-300">The Gatekeeper runs as a git pre-push hook.</strong> Before any push reaches the remote,
+              Zephyr digests all signed artifacts, bundles them into an SBOF file, and checks each signature
+              against the trust policy. If any artifact was signed by a key not in <code className="text-zinc-300 text-xs bg-white/[0.05] px-1 rounded">allowed_signers</code>,
+              the push is physically blocked. The files never leave the machine.
             </p>
+          </div>
+
+          {/* Demo commands */}
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.03] p-6">
+            <div className="text-xs font-semibold text-amber-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+              <Hexagon className="w-3.5 h-3.5" /> Live Demo
+            </div>
+            <div className="font-mono text-[12px] leading-loose space-y-4">
+              <div>
+                <div className="text-zinc-500"># 1. Show your signing identity</div>
+                <div className="text-amber-400">$ zephyr whoami</div>
+              </div>
+              <div>
+                <div className="text-zinc-500"># 2. Show who&apos;s authorized to push</div>
+                <div className="text-amber-400">$ cat ~/.zephyr/trust-policy.yml</div>
+              </div>
+              <div>
+                <div className="text-zinc-500"># 3. Install gatekeeper hooks</div>
+                <div className="text-amber-400">$ zephyr init-githooks</div>
+              </div>
+              <div>
+                <div className="text-zinc-500"># 4. Push — gatekeeper runs automatically</div>
+                <div className="text-amber-400">$ git push origin main</div>
+                <div className="text-emerald-400">✅ Zephyr gatekeeper passed. Proceeding with push.</div>
+              </div>
+              <div>
+                <div className="text-zinc-500"># 5. Demo a block: clear the trust policy</div>
+                <div className="text-amber-400">$ echo &quot;allowed_signers: []&quot; &gt; ~/.zephyr/trust-policy.yml</div>
+                <div className="text-amber-400">$ git push origin main</div>
+                <div className="text-red-400">❌ Gatekeeper failed. Push aborted.</div>
+              </div>
+              <div>
+                <div className="text-zinc-500"># 6. Restore — add your key back</div>
+                <div className="text-amber-400">$ echo &quot;allowed_signers:</div>
+                <div className="text-amber-400">  - $(zephyr pubkey)&quot; &gt; ~/.zephyr/trust-policy.yml</div>
+              </div>
+            </div>
           </div>
         </section>
 
