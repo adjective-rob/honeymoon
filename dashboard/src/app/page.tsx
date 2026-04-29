@@ -17,11 +17,11 @@ import type { DaemonState, LedgerEntry, Finding, Report, TrustData, Verification
 // Severity + Agent config
 // ---------------------------------------------------------------------------
 const SEV = {
-  critical: { color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", icon: XCircle },
-  high:     { color: "#f97316", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.3)", icon: AlertTriangle },
-  medium:   { color: "#eab308", bg: "rgba(234,179,8,0.12)",  border: "rgba(234,179,8,0.3)",  icon: AlertTriangle },
-  low:      { color: "#3b82f6", bg: "rgba(59,130,246,0.12)", border: "rgba(59,130,246,0.3)", icon: Shield },
-  info:     { color: "#6b7280", bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.1)", icon: FileSearch },
+  critical: { color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", icon: XCircle, tooltip: "Immediately exploitable. Direct path to code execution, data breach, or system compromise." },
+  high:     { color: "#f97316", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.3)", icon: AlertTriangle, tooltip: "Exploitable with moderate effort. Should be fixed before next release." },
+  medium:   { color: "#eab308", bg: "rgba(234,179,8,0.12)",  border: "rgba(234,179,8,0.3)",  icon: AlertTriangle, tooltip: "Requires specific conditions to exploit. Schedule for next sprint." },
+  low:      { color: "#3b82f6", bg: "rgba(59,130,246,0.12)", border: "rgba(59,130,246,0.3)", icon: Shield, tooltip: "Minimal risk. Fix when convenient." },
+  info:     { color: "#6b7280", bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.1)", icon: FileSearch, tooltip: "Informational finding. No immediate action required." },
 };
 
 const AGENTS = [
@@ -51,7 +51,7 @@ function PostureGauge({ score, trend }: { score: number | null; trend: string | 
   const offset = circumference - (score / 100) * circumference;
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex items-center gap-4" title="Security posture score (0-100). Higher is better. Computed from active findings: critical=-25, high=-15, medium=-5 per finding.">
       <div className="relative w-20 h-20">
         <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
           <circle cx={50} cy={50} r={40} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={5} />
@@ -424,10 +424,10 @@ function ParallelLaneView({ events }: { events: StreamEvent[] }) {
 // ---------------------------------------------------------------------------
 function CommandBar({ onCommand, running }: { onCommand: (cmd: string) => void; running: string | null }) {
   const commands = [
-    { id: "scan",     label: "Scan",     icon: Search,  desc: "Quick investigate" },
-    { id: "simulate", label: "Simulate", icon: Target,  desc: "Red/Blue attack sim" },
-    { id: "harden",   label: "Harden",   icon: Shield,  desc: "Posture tracking" },
-    { id: "deep",     label: "Deep Scan", icon: Bug,    desc: "Full audit + SPEC" },
+    { id: "scan",     label: "Scan",     icon: Search,  desc: "Quick investigate", tooltip: "Run AI agents to investigate your codebase for security issues. ~30 seconds, ~$0.05" },
+    { id: "simulate", label: "Simulate", icon: Target,  desc: "Red/Blue attack sim", tooltip: "Red Team agents simulate real attacks against your code. Blue Team evaluates feasibility. ~60 seconds, ~$0.07" },
+    { id: "harden",   label: "Harden",   icon: Shield,  desc: "Posture tracking", tooltip: "Run an attack simulation and track your security posture score over time. ~60 seconds, ~$0.10" },
+    { id: "deep",     label: "Deep Scan", icon: Bug,    desc: "Full audit + SPEC", tooltip: "Full audit: static analysis + parallel AI investigation + generates a signed remediation plan (SPEC.md). ~3 minutes, ~$0.22" },
   ];
 
   return (
@@ -442,6 +442,7 @@ function CommandBar({ onCommand, running }: { onCommand: (cmd: string) => void; 
             disabled={!!running}
             whileHover={running ? {} : { y: -2 }}
             whileTap={running ? {} : { scale: 0.98 }}
+            title={cmd.tooltip}
             className="relative px-4 py-3 rounded-xl text-left disabled:opacity-40 transition-all overflow-hidden cursor-pointer disabled:cursor-not-allowed"
             style={{
               background: isRunning ? "rgba(245,158,11,0.08)" : "rgba(255,255,255,0.02)",
@@ -496,8 +497,8 @@ function FindingPill({ finding }: { finding: Finding }) {
       onClick={() => setOpen(!open)}
     >
       <div className="flex items-center gap-2 px-3 py-2">
-        <Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: sev.color }} />
-        <span className="font-medium truncate flex-1" style={{ color: sev.color }}>
+        <span className="flex-shrink-0" title={sev.tooltip}><Icon className="w-3.5 h-3.5" style={{ color: sev.color }} /></span>
+        <span className="font-medium truncate flex-1" style={{ color: sev.color }} title={`${finding.severity.toUpperCase()}: ${sev.tooltip}`}>
           {finding.title}
         </span>
         <ChevronRight
@@ -524,7 +525,8 @@ function FindingPill({ finding }: { finding: Finding }) {
               )}
               <button
                 onClick={handleFix}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-medium transition-colors bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-medium transition-colors bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 cursor-pointer"
+                title="Create a scoped task YAML file for fixing this finding. Run 'honeymoon batch' to execute."
               >
                 <Wrench className="w-3 h-3" />
                 Generate Fix
@@ -552,9 +554,9 @@ function FindingPill({ finding }: { finding: Finding }) {
 // ---------------------------------------------------------------------------
 // Stats card
 // ---------------------------------------------------------------------------
-function Stat({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function Stat({ label, value, sub, tooltip }: { label: string; value: string | number; sub?: string; tooltip?: string }) {
   return (
-    <div className="px-4 py-3">
+    <div className="px-4 py-3" title={tooltip}>
       <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">{label}</div>
       <div className="font-mono text-lg font-bold text-zinc-200">{value}</div>
       {sub && <div className="text-[10px] text-zinc-500 mt-0.5">{sub}</div>}
@@ -666,7 +668,7 @@ function ReportCard({ report, onVerify, verifying, verification }: {
                 whileTap={{ scale: 0.9 }}
                 disabled={verifying}
                 className="p-0.5 rounded hover:bg-white/[0.06] transition-colors cursor-pointer flex-shrink-0 disabled:opacity-40"
-                title="Verify signature"
+                title="Verify this report's cryptographic signature against the signing key"
               >
                 {verifying ? (
                   <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />
@@ -837,8 +839,8 @@ function TrustPanel({ trust }: { trust: TrustData | null }) {
             style={{ background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)" }}
           >
             <div className="flex items-center gap-2">
-              <Fingerprint className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-              <span className="font-mono text-xs text-emerald-400 tracking-wide flex-1 truncate">
+              <span title="Your Ed25519 public key identity. Share this with anyone who needs to verify your reports."><Fingerprint className="w-4 h-4 text-emerald-500 flex-shrink-0" /></span>
+              <span className="font-mono text-xs text-emerald-400 tracking-wide flex-1 truncate" title="Your Ed25519 public key identity. Share this with anyone who needs to verify your reports.">
                 {trust.public_key_short}
               </span>
               <motion.button
@@ -858,6 +860,7 @@ function TrustPanel({ trust }: { trust: TrustData | null }) {
               <span
                 className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider"
                 style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}
+                title="Elliptic curve digital signature algorithm. Fast, secure, 128-bit security level."
               >
                 {trust.key_algorithm}
               </span>
@@ -865,6 +868,7 @@ function TrustPanel({ trust }: { trust: TrustData | null }) {
                 <span
                   className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider flex items-center gap-1"
                   style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.3)" }}
+                  title="Zephyr hardware signing is available. Keys are bound to this physical device."
                 >
                   <Key className="w-2.5 h-2.5" />
                   Hardware Signing
@@ -878,18 +882,18 @@ function TrustPanel({ trust }: { trust: TrustData | null }) {
 
           {/* Trust Stats */}
           <div className="grid grid-cols-3 gap-1.5">
-            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }} title="Pipeline events (agent actions, tool calls, verdicts) signed with your key">
               <div className="flex items-center justify-center gap-1 mb-0.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Events</span>
               </div>
               <span className="font-mono text-sm font-bold text-zinc-200">{trust.signed_events}</span>
             </div>
-            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }} title="Investigation reports with Ed25519 attestation">
               <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-0.5">Reports</div>
               <span className="font-mono text-sm font-bold text-zinc-200">{trust.signed_reports}</span>
             </div>
-            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }} title="Whether all events in the audit log have valid signatures">
               <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-0.5">Status</div>
               <span className={`text-[10px] font-bold ${allVerified ? "text-emerald-400" : "text-amber-400"}`}>
                 {allVerified ? "All verified" : `${trust.unsigned_events} unverified`}
@@ -1045,7 +1049,7 @@ export default function Home() {
               <h1 className="text-xl font-bold tracking-tight text-zinc-100">HONEYMOON</h1>
               <div className="flex items-center gap-2 text-[11px]">
                 <span className="text-zinc-500">{state?.repo_name || "—"}</span>
-                <span className="flex items-center gap-1">
+                <span className="flex items-center gap-1" title={connected ? "Connected to the Honeymoon daemon via WebSocket" : "Not connected. Start the daemon: honeymoon serve --repo ."}>
                   {connected ? (
                     <><Wifi className="w-3 h-3 text-emerald-500" /><span className="text-emerald-500">Live</span></>
                   ) : (
@@ -1059,16 +1063,16 @@ export default function Home() {
           <div className="flex items-center gap-6">
             <PostureGauge score={state?.posture ?? null} trend={state?.trend ?? null} />
             <div className="flex gap-px rounded-lg border border-white/[0.06] overflow-hidden">
-              <Stat label="Runs" value={state?.hardening_runs ?? 0} />
-              <Stat label="Reports" value={state?.report_count ?? 0} />
-              <Stat label="Issues" value={state?.finding_count ?? 0} />
+              <Stat label="Runs" value={state?.hardening_runs ?? 0} tooltip="Total hardening simulation runs recorded in the signed ledger" />
+              <Stat label="Reports" value={state?.report_count ?? 0} tooltip="Investigation and simulation reports generated" />
+              <Stat label="Issues" value={state?.finding_count ?? 0} tooltip="Active security findings from the most recent hardening run" />
             </div>
             <a
               href="/zephyr"
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold
                          bg-emerald-500/[0.08] border border-emerald-500/20 text-emerald-400
                          hover:bg-emerald-500/[0.15] hover:border-emerald-500/30 transition-all cursor-pointer"
-              title="How Zephyr signing works"
+              title="Learn how Zephyr cryptographic signing works — signing, verification, and the Gatekeeper"
             >
               <Shield className="w-3.5 h-3.5" />
               Zephyr
@@ -1088,9 +1092,10 @@ export default function Home() {
           <div className="col-span-4 space-y-5">
             {/* Hive */}
             <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
                 <Hexagon className="w-3 h-3" /> The Hive
               </div>
+              <div className="text-[10px] text-zinc-600 mb-3">Agent status — hexagons pulse when agents are actively investigating</div>
               <div className="flex flex-wrap justify-center gap-0.5">
                 {AGENTS.map((a) => (
                   <HiveCell
@@ -1132,7 +1137,7 @@ export default function Home() {
             {/* Ledger */}
             {state?.ledger && state.ledger.length > 0 && (
               <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5" title="Security posture score over time. Each bar represents one hardening run. Green >= 70, Yellow >= 40, Red < 40.">
                   <ScrollText className="w-3 h-3" /> Hardening Ledger
                 </div>
                 <LedgerChart entries={state.ledger} />
@@ -1197,10 +1202,10 @@ export default function Home() {
                   <div className="flex flex-col items-center justify-center h-[500px] text-zinc-600">
                     <Hexagon className="w-12 h-12 text-zinc-800 mb-4" />
                     <p className="text-sm font-medium text-zinc-500">
-                      {connected ? "Click a command to start" : "Waiting for daemon..."}
+                      {connected ? "Click a command above to start" : "Waiting for daemon..."}
                     </p>
                     <p className="text-xs text-zinc-600 mt-1">
-                      {connected ? "Events will stream here live" : "honeymoon serve --repo ."}
+                      {connected ? "You'll see real-time events as AI agents investigate your codebase" : "Start the daemon: honeymoon serve --repo ."}
                     </p>
                   </div>
                 ) : running === "deep" && events.some((e) => parseLaneIndex(e.line || e.detail || "") !== null) ? (
