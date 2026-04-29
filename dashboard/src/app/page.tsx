@@ -1063,6 +1063,16 @@ export default function Home() {
               <Stat label="Reports" value={state?.report_count ?? 0} />
               <Stat label="Issues" value={state?.finding_count ?? 0} />
             </div>
+            <a
+              href="/zephyr"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold
+                         bg-emerald-500/[0.08] border border-emerald-500/20 text-emerald-400
+                         hover:bg-emerald-500/[0.15] hover:border-emerald-500/30 transition-all cursor-pointer"
+              title="How Zephyr signing works"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              Zephyr
+            </a>
           </div>
         </header>
 
