@@ -34,4 +34,4 @@ def test_task_writer_routes_with_auditor_role_and_router_resolves_auditor_model(
     assert written == []
     assert captured["role"] == "auditor"
     assert captured["kwargs"]["tool_choice"] == {"type": "function", "function": {"name": "think"}}
-    assert router.resolve_model("auditor") == "openai/gpt-5.5-nano"
+    assert router.resolve_model("auditor") == "openai/gpt-5.4-mini"
