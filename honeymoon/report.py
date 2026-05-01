@@ -506,9 +506,17 @@ def _write_html_report(
 </div>'''
 
     # Build recommendations HTML
+    arrow_svg = (
+        '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" '
+        'stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
+        'style="flex-shrink:0;margin-top:3px">'
+        '<line x1="1" y1="7" x2="11" y2="7"/>'
+        '<polyline points="7,3 11,7 7,11"/>'
+        '</svg>'
+    )
     recs_html = ""
     for rec in findings.get("recommendations", []):
-        recs_html += f"<li>{rec}</li>"
+        recs_html += f"<li>{arrow_svg}{rec}</li>"
 
     # Build verification HTML
     verification_html = ""
