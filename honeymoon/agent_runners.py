@@ -116,7 +116,7 @@ def run_implementer(ctx: RunContext, task: Task, plan: dict) -> AgentResult:
     # Rewrite heuristic — prefer write_file over surgical edits for small files
     for f in plan.get("files_likely_affected", []):
         fpath = ctx.ws_path / f
-        if fpath.exists() and fpath.stat().st_size > 0:
+        if fpath.is_file() and fpath.stat().st_size > 0:
             line_count = len(fpath.read_text().splitlines())
             if line_count < 200:
                 impl_constraints.append(
