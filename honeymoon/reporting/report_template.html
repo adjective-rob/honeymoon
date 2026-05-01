@@ -94,6 +94,20 @@
   .cost-item .cost-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px; }
   .cost-item .cost-value { font-size: 18px; font-weight: 700; color: #e5e7eb; }
 
+  /* Provenance chain */
+  .provenance-chain { display: flex; flex-direction: column; gap: 0; }
+  .provenance-event { display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: start; position: relative; padding: 12px 0; }
+  .provenance-event:not(:last-child)::before { content: ''; position: absolute; left: 15px; top: 36px; bottom: -1px; width: 2px; background: rgba(16,185,129,0.2); }
+  .provenance-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(16,185,129,0.1); border: 1.5px solid rgba(16,185,129,0.3); flex-shrink: 0; z-index: 1; }
+  .provenance-dot svg { width: 14px; height: 14px; }
+  .provenance-info { min-width: 0; }
+  .provenance-type { font-size: 13px; font-weight: 600; color: #e5e7eb; }
+  .provenance-agent { font-size: 11px; color: #6b7280; margin-top: 2px; }
+  .provenance-sig { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #4b5563; margin-top: 4px; word-break: break-all; }
+  .provenance-time { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #6b7280; white-space: nowrap; padding-top: 2px; }
+  .provenance-summary { font-size: 12px; color: #6b7280; margin-top: 8px; padding: 10px 14px; background: rgba(255,255,255,0.02); border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); }
+  .provenance-summary .mono { font-family: 'JetBrains Mono', monospace; }
+
   /* Attestation — certificate style */
   .attestation { background: linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(16,185,129,0.02) 100%); border: 1px solid rgba(16,185,129,0.2); border-radius: 10px; padding: 24px 28px; position: relative; }
   .attestation::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #10b981, #6ee7b7, #10b981); border-radius: 10px 10px 0 0; }

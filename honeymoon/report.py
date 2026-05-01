@@ -27,6 +27,37 @@ from honeymoon.signing import HiveSigner
 console = Console()
 
 
+def _load_provenance(repo_path: Path, run_id: str) -> list[dict[str, Any]]:
+    """Load signed audit events for a specific run from audit.jsonl."""
+    audit_file = repo_path / ".honeymoon" / "logs" / "audit.jsonl"
+    if not audit_file.exists():
+        return []
+
+    events = []
+    for line in audit_file.read_text().splitlines():
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+            # Zephyr-signed entries have payload as a JSON string
+            payload = entry.get("payload", "")
+            if isinstance(payload, str):
+                payload_data = json.loads(payload)
+            else:
+                payload_data = payload
+            if payload_data.get("run_id") == run_id:
+                events.append({
+                    "event_type": payload_data.get("event_type", "unknown"),
+                    "agent_id": payload_data.get("agent_id", "system"),
+                    "timestamp": payload_data.get("timestamp", entry.get("timestamp", "")),
+                    "signature": entry.get("signature", ""),
+                    "signer": entry.get("signer", ""),
+                })
+        except (json.JSONDecodeError, KeyError):
+            continue
+    return events
+
+
 def write_report(
     repo_path: Path,
     run_id: str,
@@ -219,6 +250,9 @@ def write_report(
 
     json_path.write_text(json.dumps(json_data, indent=2))
 
+    # --- Load provenance chain ---
+    provenance = _load_provenance(repo_path, run_id)
+
     # --- HTML Report ---
     html_path = _write_html_report(
         reports_dir / f"{short_id}.html",
@@ -231,6 +265,7 @@ def write_report(
         budget=budget,
         signature=signature if signer else None,
         public_key=signer.public_key_hex if signer else None,
+        provenance=provenance,
     )
     if html_path:
         logger.info(f"[REPORT] HTML report: {html_path}")
@@ -328,6 +363,74 @@ def _honeycomb_svg() -> str:
     )
 
 
+def _provenance_dot_svg() -> str:
+    """Return an inline SVG checkmark for provenance chain nodes."""
+    return (
+        '<svg viewBox="0 0 14 14" fill="none" stroke="#6ee7b7" stroke-width="2"'
+        ' stroke-linecap="round" stroke-linejoin="round">'
+        '<polyline points="3,7 6,10 11,4"/>'
+        '</svg>'
+    )
+
+
+def _build_provenance_html(provenance: list[dict[str, Any]]) -> str:
+    """Build the provenance chain HTML section."""
+    if not provenance:
+        return ""
+
+    # Friendly labels for event types
+    labels = {
+        "run.started": "Pipeline Started",
+        "run.completed": "Pipeline Completed",
+        "workspace_created": "Workspace Created",
+        "repo_indexed": "Repository Indexed",
+        "prelude_constraints_loaded": "Constraints Loaded",
+        "pipeline.step_started": "Agent Step Started",
+        "pipeline.step_completed": "Agent Step Completed",
+        "tool.executed": "Tool Executed",
+        "findings.submitted": "Findings Submitted",
+        "verification.completed": "Verification Completed",
+    }
+
+    dot = _provenance_dot_svg()
+    events_html = ""
+    for ev in provenance:
+        event_type = ev.get("event_type", "unknown")
+        label = labels.get(event_type, event_type.replace(".", " ").replace("_", " ").title())
+        agent = ev.get("agent_id", "system")
+        sig = ev.get("signature", "")
+        ts = ev.get("timestamp", "")
+        # Show time portion only
+        time_display = ts[11:19] if len(ts) >= 19 else ts
+
+        sig_display = f"{sig[:24]}...{sig[-8:]}" if len(sig) > 36 else sig
+
+        events_html += f'''<div class="provenance-event">
+  <div class="provenance-dot">{dot}</div>
+  <div class="provenance-info">
+    <div class="provenance-type">{label}</div>
+    <div class="provenance-agent">{agent}</div>
+    <div class="provenance-sig">{sig_display}</div>
+  </div>
+  <div class="provenance-time">{time_display}</div>
+</div>'''
+
+    signer = provenance[0].get("signer", "") if provenance else ""
+    signer_display = f"{signer[:16]}..." if len(signer) > 20 else signer
+    summary = (
+        f'<div class="provenance-summary">'
+        f'<strong>{len(provenance)}</strong> events signed by '
+        f'<span class="mono">{signer_display}</span> via Zephyr'
+        f'</div>'
+    )
+
+    return f'''<div class="section">
+  <div class="section-title">Provenance Chain</div>
+  <div class="provenance-chain">{events_html}</div>
+  {summary}
+</div>'''
+
+
 def _write_html_report(
     path: Path,
     *,
@@ -340,6 +443,7 @@ def _write_html_report(
     budget: dict[str, Any] | None,
     signature: str | None,
     public_key: str | None,
+    provenance: list[dict[str, Any]] | None = None,
 ) -> Path | None:
     """Generate a self-contained HTML report."""
     template_path = Path(__file__).parent / "reporting" / "report_template.html"
@@ -496,6 +600,8 @@ def _write_html_report(
   {f'<div class="section"><div class="section-title">Verification</div>{verification_html}</div>' if verification_html else ""}
 
   {f'<div class="section"><div class="section-title">Cost</div>{cost_html}</div>' if cost_html else ""}
+
+  {_build_provenance_html(provenance or [])}
 
   <div class="section">
     <div class="section-title">Attestation</div>
