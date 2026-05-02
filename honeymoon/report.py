@@ -575,7 +575,7 @@ def _write_html_report(
 
     # Inline Honeymoon logo SVG
     logo_svg = (
-        '<svg class="logo-svg" width="120" height="25" viewBox="0 0 698 145" fill="none"'
+        '<svg class="logo-svg" width="180" height="37" viewBox="0 0 698 145" fill="none"'
         ' xmlns="http://www.w3.org/2000/svg"><path d="M88.4404 124.876C97.4948 124.876'
         ' 104.904 124.966 104.914 125.075C104.914 125.45 88.7612 145.016 88.4648 145C88.3678'
         ' 144.991 86.6194 142.965 84.5801 140.499C77.1686 131.536 71.9678 125.15 71.9678'
@@ -685,7 +685,7 @@ def _write_html_report(
     # Assemble
     content = f'''
   <div class="header-bar">
-    <div class="logo-row">{logo_svg} <span class="logo-text">HONEYMOON</span></div>
+    <div class="logo-row">{logo_svg}</div>
     <div class="subtitle">Investigation Report &middot; {short_id}</div>
   </div>
 
