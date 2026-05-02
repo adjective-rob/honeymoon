@@ -8,7 +8,7 @@ import {
   ChevronRight, Lock, FileSearch, Zap, Activity,
   TrendingUp, TrendingDown, Minus, ScrollText,
   ExternalLink, Clock, DollarSign, FileCheck, ClipboardList,
-  ShieldCheck, Key, Fingerprint, BadgeCheck, Copy, Columns, Wrench,
+  ShieldCheck, Key, Fingerprint, BadgeCheck, Copy, Columns, Wrench, FileText,
 } from "lucide-react";
 import { socket } from "@/lib/ws";
 import type { DaemonState, LedgerEntry, Finding, Report, TrustData, VerificationResult } from "@/lib/types";
@@ -428,10 +428,11 @@ function CommandBar({ onCommand, running }: { onCommand: (cmd: string) => void; 
     { id: "simulate", label: "Simulate", icon: Target,  desc: "Red/Blue attack sim", tooltip: "Red Team agents simulate real attacks against your code. Blue Team evaluates feasibility. ~60 seconds, ~$0.07" },
     { id: "harden",   label: "Harden",   icon: Shield,  desc: "Posture tracking", tooltip: "Run an attack simulation and track your security posture score over time. ~60 seconds, ~$0.10" },
     { id: "deep",     label: "Deep Scan", icon: Bug,    desc: "Full audit + SPEC", tooltip: "Full audit: static analysis + parallel AI investigation + generates a signed remediation plan (SPEC.md). ~3 minutes, ~$0.22" },
+    { id: "ssp",      label: "Produce SSP", icon: FileText, desc: "NIST 800-53 Rev 5", tooltip: "Generate a signed System Security Plan against the full NIST 800-53 Rev 5 MODERATE baseline (287 controls). Uses scan findings + Prelude context. ~5 seconds" },
   ];
 
   return (
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-5 gap-2">
       {commands.map((cmd) => {
         const isRunning = running === cmd.id;
         const Icon = cmd.icon;
@@ -575,6 +576,7 @@ const MISSION_COLORS: Record<string, { color: string; bg: string; border: string
   simulate:    { color: "#ef4444", bg: "rgba(239,68,68,0.12)",  border: "rgba(239,68,68,0.3)"  },
   harden:      { color: "#06b6d4", bg: "rgba(6,182,212,0.12)",  border: "rgba(6,182,212,0.3)"  },
   deep:        { color: "#f97316", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.3)" },
+  ssp:         { color: "#D4B56A", bg: "rgba(212,181,106,0.12)", border: "rgba(212,181,106,0.3)" },
 };
 
 const DEFAULT_MISSION_STYLE = { color: "#8A7D65", bg: "rgba(138,125,101,0.10)", border: "rgba(138,125,101,0.25)" };

@@ -290,7 +290,7 @@ class HoneymoonDaemon:
             task_path = self._create_fix_task(opts)
             await websocket.send(json.dumps({"type": "fix_created", "path": str(task_path)}))
 
-        elif action in ("scan", "simulate", "harden", "deep"):
+        elif action in ("scan", "simulate", "harden", "deep", "ssp"):
             if self._running_command:
                 await websocket.send(json.dumps({
                     "type": "error",
@@ -320,6 +320,9 @@ class HoneymoonDaemon:
 
         if action == "simulate" and options.get("scenario"):
             cmd.extend(["--scenario", options["scenario"]])
+
+        if action == "ssp":
+            cmd.extend(["--baseline", options.get("baseline", "moderate")])
 
         logger.info(f"[DAEMON] Executing: {' '.join(cmd)}")
 
