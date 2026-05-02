@@ -1044,13 +1044,9 @@ export default function Home() {
         {/* Header */}
         <header className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-sm bg-[#D4B56A]/10 border border-[#D4B56A]/20 flex items-center justify-center">
-              <svg viewBox="0 0 698 145" className="w-6 h-6" fill="#D4B56A">
-                <path d="M88.4404 124.876C97.4948 124.876 104.904 124.966 104.914 125.075C104.914 125.45 88.7612 145.016 88.4648 145C88.3678 144.991 86.6194 142.965 84.5801 140.499C77.1686 131.536 71.9678 125.15 71.9678 125.015C71.9709 124.939 79.3821 124.876 88.4404 124.876ZM88.5938 102.6C104.595 102.6 117.691 102.666 117.727 102.748C117.727 102.83 117.301 104.238 116.782 105.876C115.795 108.99 113.491 113.728 111.515 116.707L110.354 118.456L89.2539 118.538C77.6496 118.583 67.8023 118.574 67.3701 118.518C66.7646 118.438 66.2302 117.848 65.0225 115.924C62.3492 111.665 59.46 105.031 59.46 103.152C59.46 102.622 60.6685 102.6 88.5938 102.6Z" />
-              </svg>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="HONEYMOON" className="h-7" />
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-[#D4B56A]">HONEYMOON</h1>
               <div className="flex items-center gap-2 text-[11px]">
                 <span className="text-[#8A7D65]">{state?.repo_name || "—"}</span>
                 <span className="flex items-center gap-1" title={connected ? "Connected to the Honeymoon daemon via WebSocket" : "Not connected. Start the daemon: honeymoon serve --repo ."}>
