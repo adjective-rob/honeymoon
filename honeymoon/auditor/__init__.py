@@ -5,9 +5,9 @@ Scans a repository for actionable findings and generates
 well-scoped HONEYMOON task YAML files.
 
 Usage:
-    glitchlab audit --repo ~/Desktop/Zephyr
-    glitchlab audit --repo ~/Desktop/Zephyr --kind missing_doc
-    glitchlab audit --repo ~/Desktop/Zephyr --dry-run
+    honeymoon audit --repo ~/Desktop/Zephyr
+    honeymoon audit --repo ~/Desktop/Zephyr --kind missing_doc
+    honeymoon audit --repo ~/Desktop/Zephyr --dry-run
 """
 
 from .scanner import Scanner, ScanResult, Finding

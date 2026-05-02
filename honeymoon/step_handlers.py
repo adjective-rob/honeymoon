@@ -106,7 +106,7 @@ def handle_planner_result(
     # Warn on large plans that survived the rejection gate
     if len(ctx.state.plan_steps) > 4:
         logger.warning(
-            f"[QUEEN] Plan has {len(ctx.state.plan_steps)} steps after condensation attempt. "
+            f"[PLANNER] Plan has {len(ctx.state.plan_steps)} steps after condensation attempt. "
             f"Task may be too large for reliable single-pass implementation."
         )
         console.print(
@@ -130,7 +130,7 @@ def handle_planner_result(
 
         if not (has_function_ref or has_line_ref or has_code):
             logger.warning(
-                f"[QUEEN] Step {step_data.step_number}: code_hint is descriptive, "
+                f"[PLANNER] Step {step_data.step_number}: code_hint is descriptive, "
                 f"not specific. Hint: '{hint[:80]}...'"
             )
             step_data.code_hint = (

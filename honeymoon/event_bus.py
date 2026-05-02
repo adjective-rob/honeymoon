@@ -51,7 +51,7 @@ class EventBus:
             except Exception as e:
                 # Prevent a failing subscriber (like a bad file write) from crashing the engine
                 import logging
-                logging.getLogger("glitchlab.event_bus").debug(
+                logging.getLogger("honeymoon.event_bus").debug(
                     "Subscriber %s failed: %s", subscriber.__name__
                     if hasattr(subscriber, '__name__') else subscriber, e
                 )

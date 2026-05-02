@@ -232,7 +232,7 @@ FAST MODE ENABLED: This is a trivial change. DO NOT use `think`, `read_file`, `r
         think_count = 0
 
         for step in range(max_steps):
-            logger.debug(f"[FRANKIE] Loop Step {step+1}/{max_steps}...")
+            logger.debug(f"[GUARD] Loop Step {step+1}/{max_steps}...")
 
             # Context compression for large tool outputs
             for i in range(len(messages)):
@@ -312,7 +312,7 @@ FAST MODE ENABLED: This is a trivial change. DO NOT use `think`, `read_file`, `r
                     )
                     continue
 
-                logger.info(f"[FRANKIE] 🛠️ Tool call: {tc_name}")
+                logger.info(f"[GUARD] 🛠️ Tool call: {tc_name}")
                 bus.emit(
                     event_type="agent.tool_called",
                     payload={

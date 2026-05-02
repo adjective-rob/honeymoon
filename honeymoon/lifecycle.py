@@ -196,7 +196,7 @@ def finalize(
     ctx.state.mark_phase("commit")
     ctx.state.persist(ctx.ws_path)
 
-    commit_msg = impl.get("commit_message", f"glitchlab: {task.task_id}")
+    commit_msg = impl.get("commit_message", f"honeymoon: {task.task_id}")
     ctx.workspace.commit(commit_msg)
 
     # Rebase Before PR
@@ -383,7 +383,7 @@ def write_session_entry(ctx: RunContext, task: Task, result: dict[str, Any]) -> 
                 "$schema": "https://adjective.us/prelude/schemas/v1/session.json",
                 "version": "1.0.0",
                 "sessions": [{
-                    "sessionId": "glitchlab",
+                    "sessionId": "honeymoon",
                     "startedAt": datetime.now(timezone.utc).isoformat(),
                     "entries": [],
                 }],
@@ -409,7 +409,7 @@ def write_session_entry(ctx: RunContext, task: Task, result: dict[str, Any]) -> 
 
 def _create_pr(ctx: RunContext, task: Task, impl: dict, release: dict) -> str:
     """Create a GitHub PR via gh CLI."""
-    title = impl.get("commit_message", f"glitchlab: {task.task_id}")
+    title = impl.get("commit_message", f"honeymoon: {task.task_id}")
     body = build_pr_body(task, impl, release)
 
     result = subprocess.run(

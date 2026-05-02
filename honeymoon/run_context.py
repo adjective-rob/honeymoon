@@ -30,7 +30,7 @@ class RunContext:
 
     # Workspace
     ws_path: Path
-    workspace: Any  # glitchlab.workspace.Workspace
+    workspace: Any  # honeymoon.workspace.Workspace
     tools: ToolExecutor
 
     # Structured state (mutated by handlers)
@@ -40,12 +40,12 @@ class RunContext:
     agents: dict[str, BaseAgent]
 
     # Infrastructure
-    router: Any           # glitchlab.router.Router
-    boundary: Any         # glitchlab.governance.BoundaryEnforcer
-    scope: Any            # glitchlab.scope.ScopeResolver
-    repo_index: Any       # glitchlab.indexer.RepoIndex
-    prelude: Any          # glitchlab.prelude.PreludeContext
-    history: Any          # glitchlab.history.TaskHistory
+    router: Any           # honeymoon.router.Router
+    boundary: Any         # honeymoon.governance.BoundaryEnforcer
+    scope: Any            # honeymoon.scope.ScopeResolver
+    repo_index: Any       # honeymoon.indexer.RepoIndex
+    prelude: Any          # honeymoon.prelude.PreludeContext
+    history: Any          # honeymoon.history.TaskHistory
 
     # Run options
     allow_core: bool = False

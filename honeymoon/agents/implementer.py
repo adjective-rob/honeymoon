@@ -389,7 +389,7 @@ Rules:
 
         # Agent Guide: inject codebase knowledge if available
         agent_guide = ""
-        guide_path = Path(context.repo_path) / "glitchlab" / "AGENT_GUIDE.md"
+        guide_path = Path(context.repo_path) / ".honeymoon" / "AGENT_GUIDE.md"
         if guide_path.exists():
             agent_guide = f"\n\nAgent Guide:\n{guide_path.read_text()[:3000]}\n"
 
@@ -440,7 +440,7 @@ Plan: {steps_text}
             max_steps = complexity_budget.get(complexity, 30) if fast_mode else 60
         
         for step in range(max_steps):
-            logger.debug(f"[PATCH] Loop Step {step+1}/{max_steps}...")
+            logger.debug(f"[BUILDER] Loop Step {step+1}/{max_steps}...")
             
             # 1. Proactive smart context compression
             compress_stale_messages(messages)
@@ -453,7 +453,7 @@ Plan: {steps_text}
                 if step >= 10 or read_count >= read_cap:
                     # Hard circuit breaker — agent is stuck in a read loop
                     logger.warning(
-                        f"[PATCH] Write-deadline breaker tripped at step {step + 1}. "
+                        f"[BUILDER] Write-deadline breaker tripped at step {step + 1}. "
                         f"0 writes after {think_count} thinks, {read_count} reads (cap={read_cap}), {search_count} searches."
                     )
                     bus.emit(
@@ -556,7 +556,7 @@ Plan: {steps_text}
                     messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": "Error: Invalid JSON in arguments."})
                     continue
 
-                logger.info(f"[PATCH] 🛠️ Tool call: {tc_name}")
+                logger.info(f"[BUILDER] 🛠️ Tool call: {tc_name}")
                 bus.emit(
                     event_type="agent.tool_called",
                     payload={
@@ -1062,7 +1062,7 @@ Plan: {steps_text}
                     }
 
         # If it hits max steps without calling 'done'
-        logger.warning("[PATCH] Loop exhausted without calling `done`.")
+        logger.warning("[BUILDER] Loop exhausted without calling `done`.")
         return {
             "changes": [],
             "tests_added": [],

@@ -305,7 +305,7 @@ Rules:
                                 f"critical steps and note in risk_notes that the task may need splitting. "
                                 f"Re-submit with submit_plan."
                             )
-                            logger.info(f"[QUEEN] Rejected {len(plan_steps)}-step plan. Asking planner to condense.")
+                            logger.info(f"[PLANNER] Rejected {len(plan_steps)}-step plan. Asking planner to condense.")
                             messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": res})
                             continue
                     except (ValueError, TypeError):
@@ -321,7 +321,7 @@ Rules:
                     return self.parse_response(fake_response, context)
 
         # Fallback: loop exhausted without submit_plan
-        logger.warning("[QUEEN] Planner loop exhausted without calling submit_plan.")
+        logger.warning("[PLANNER] Planner loop exhausted without calling submit_plan.")
         return {
             "steps": [],
             "files_likely_affected": [],
@@ -382,8 +382,8 @@ Produce your execution plan as JSON."""
             plan = validated_plan.model_dump()
 
         except (json.JSONDecodeError, ValidationError) as e:
-            logger.error(f"[QUEEN] Failed to parse/validate plan JSON: {e}")
-            logger.debug(f"[QUEEN] Raw response: {content[:500]}")
+            logger.error(f"[PLANNER] Failed to parse/validate plan JSON: {e}")
+            logger.debug(f"[PLANNER] Raw response: {content[:500]}")
             plan = {
                 "steps": [],
                 "files_likely_affected": [],
@@ -406,13 +406,13 @@ Produce your execution plan as JSON."""
         plan["_cost"] = response.cost
 
         logger.info(
-            f"[QUEEN] Plan ready — "
+            f"[PLANNER] Plan ready — "
             f"{len(plan.get('steps', []))} steps, "
             f"risk={plan.get('risk_level', '?')}, "
             f"core_change={plan.get('requires_core_change', False)}"
         )
         if "self_review_notes" in plan:
-            logger.info(f"[QUEEN] Self-review: {plan['self_review_notes']}")
+            logger.info(f"[PLANNER] Self-review: {plan['self_review_notes']}")
 
         return plan
 
@@ -420,7 +420,7 @@ Produce your execution plan as JSON."""
     def _warn_on_quality_gaps(plan: dict) -> None:
         """Log warnings when the planner skips fields that improve implementer accuracy."""
         if not plan.get("do_not_touch"):
-            logger.warning("[QUEEN] ⚠ Plan-level do_not_touch is empty. Implementer has no boundary guidance.")
+            logger.warning("[PLANNER] ⚠ Plan-level do_not_touch is empty. Implementer has no boundary guidance.")
 
         for step in plan.get("steps", []):
             n = step.get("step_number", "?")
@@ -428,6 +428,6 @@ Produce your execution plan as JSON."""
 
             if action in ("modify", "create"):
                 if not step.get("code_hint"):
-                    logger.warning(f"[QUEEN] ⚠ Step {n}: missing code_hint. Implementer will have to guess the change shape.")
+                    logger.warning(f"[PLANNER] ⚠ Step {n}: missing code_hint. Implementer will have to guess the change shape.")
                 if not step.get("do_not_touch"):
-                    logger.warning(f"[QUEEN] ⚠ Step {n}: missing do_not_touch. Implementer may drift into adjacent code.")
+                    logger.warning(f"[PLANNER] ⚠ Step {n}: missing do_not_touch. Implementer may drift into adjacent code.")

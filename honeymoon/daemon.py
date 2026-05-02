@@ -352,14 +352,14 @@ class HoneymoonDaemon:
                         if len(parts) >= 2:
                             event["agent"] = parts[0].split("[ROUTER]")[1].strip()
                             event["detail"] = parts[1].strip()
-                    elif "[PATCH]" in line and "Tool call:" in line:
+                    elif "[BUILDER]" in line and "Tool call:" in line:
                         event["type"] = "tool_call"
                         event["tool"] = line.split("Tool call:")[1].strip()
-                    elif "[FRANKIE]" in line and "Tool call:" in line:
+                    elif "[GUARD]" in line and "Tool call:" in line:
                         event["type"] = "tool_call"
                         event["agent"] = "security"
                         event["tool"] = line.split("Tool call:")[1].strip()
-                    elif "[QUEEN]" in line:
+                    elif "[PLANNER]" in line:
                         event["type"] = "planner"
                         event["agent"] = "planner"
                     elif "[EVENT]" in line:

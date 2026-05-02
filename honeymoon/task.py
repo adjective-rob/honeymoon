@@ -284,7 +284,7 @@ def apply_tests(
 
 def _apply_patch(working_dir: Path, patch: str) -> bool | str:
     """Apply a unified diff using the 'patch' CLI."""
-    logger.debug(f"[PATCH] Raw patch content:\n{patch[:1000]}")
+    logger.debug(f"[BUILDER] Raw patch content:\n{patch[:1000]}")
 
     cleaned = patch.strip()
     if cleaned.startswith("```"):
@@ -294,7 +294,7 @@ def _apply_patch(working_dir: Path, patch: str) -> bool | str:
 
     if not any(line.startswith(("---", "diff ", "@@")) for line in cleaned.split("\n")):
         msg = "Not a valid unified diff (missing ---, diff, or @@ markers)"
-        logger.warning(f"[PATCH] {msg}")
+        logger.warning(f"[BUILDER] {msg}")
         return msg
 
     patch_file = None
@@ -317,11 +317,11 @@ def _apply_patch(working_dir: Path, patch: str) -> bool | str:
             return True
 
         error = (result.stderr or result.stdout).strip()
-        logger.warning(f"[PATCH] patch failed: {error}")
+        logger.warning(f"[BUILDER] patch failed: {error}")
         return error
 
     except Exception as e:
-        logger.warning(f"[PATCH] Exception applying patch: {e}")
+        logger.warning(f"[BUILDER] Exception applying patch: {e}")
         return str(e)
     finally:
         if patch_file:

@@ -36,7 +36,7 @@ console = Console()
 # ---------------------------------------------------------------------------
 
 def run_planner(ctx: RunContext, task: Task, failure_context: str = "") -> AgentResult:
-    console.print("\n[bold magenta]🧠 [QUEEN] Planning...[/]")
+    console.print("\n[bold magenta]🧠 [PLANNER] Planning...[/]")
 
     # Planner gets: repo file map + task + failure history
     # NO global Prelude dump. Prelude constraints already merged into task.
@@ -93,7 +93,7 @@ def run_planner(ctx: RunContext, task: Task, failure_context: str = "") -> Agent
 # ---------------------------------------------------------------------------
 
 def run_implementer(ctx: RunContext, task: Task, plan: dict) -> AgentResult:
-    console.print("\n[bold blue]🔧 [PATCH] Implementing...[/]")
+    console.print("\n[bold blue]🔧 [BUILDER] Implementing...[/]")
 
     # AST Layer Initialization
     symbol_index = SymbolIndex(ctx.ws_path)
@@ -611,7 +611,7 @@ def run_security(
     ctx: RunContext, task: Task, is_fast_mode: bool = False,
 ) -> AgentResult:
     """Run the security agent to scan for vulnerabilities."""
-    console.print("\n[bold red]🔒 [FRANKIE] Security scan...[/]")
+    console.print("\n[bold red]🔒 [GUARD] Security scan...[/]")
 
     diff = ctx.workspace.diff_full() if ctx.workspace else ""
 
@@ -672,7 +672,7 @@ def run_archivist(
     ctx: RunContext, task: Task, is_fast_mode: bool = False,
 ) -> AgentResult:
     """Run Archivist Nova with structured state context."""
-    console.print("\n[bold dim]📚 [NOVA] Documenting...[/]")
+    console.print("\n[bold dim]📚 [KEEPER] Documenting...[/]")
 
     existing_docs = []
     for pattern in ["*.md", "docs/**/*.md", "doc/**/*.md"]:

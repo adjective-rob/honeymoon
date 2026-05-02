@@ -203,7 +203,7 @@ When finished, call `done` with architecture_notes, should_write_adr, adr (or nu
         created_files: set[str] = set()
 
         for step in range(max_steps):
-            logger.debug(f"[NOVA] Loop Step {step+1}/{max_steps}...")
+            logger.debug(f"[KEEPER] Loop Step {step+1}/{max_steps}...")
 
             # Context compression for long tool outputs
             for i in range(len(messages)):
@@ -254,7 +254,7 @@ When finished, call `done` with architecture_notes, should_write_adr, adr (or nu
                     )
                     continue
 
-                logger.info(f"[NOVA] 🛠️ Tool call: {tc_name}")
+                logger.info(f"[KEEPER] 🛠️ Tool call: {tc_name}")
                 bus.emit(
                     event_type="agent.tool_called",
                     payload={
@@ -373,7 +373,7 @@ When finished, call `done` with architecture_notes, should_write_adr, adr (or nu
 
                 messages.append({"role": "tool", "tool_call_id": tc_id, "name": tc_name, "content": str(res)})
 
-        logger.warning("[NOVA] Loop exhausted without calling `done`.")
+        logger.warning("[KEEPER] Loop exhausted without calling `done`.")
         return {
             "adr": None,
             "doc_updates": [],
