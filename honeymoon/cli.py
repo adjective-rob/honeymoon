@@ -1805,6 +1805,55 @@ def scan(
         console.print(f"  [bold]Opened:[/]   {html_path}")
 
 
+@app.command()
+def ssp(
+    repo: Path = typer.Option(..., "--repo", "-r", help="Path to the target repository"),
+    baseline: str = typer.Option("moderate", "--baseline", "-b", help="NIST baseline: low, moderate, high"),
+    open_report: bool = typer.Option(True, "--open/--no-open", help="Auto-open HTML report in browser"),
+    scan_first: bool = typer.Option(False, "--scan/--no-scan", help="Run a scan before generating SSP"),
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
+):
+    """Generate a signed System Security Plan (NIST 800-53 Rev 5)."""
+    from honeymoon.ssp.generator import generate_ssp
+
+    _print_banner()
+    _configure_logging(verbose)
+
+    repo = repo.resolve()
+    if not repo.exists():
+        console.print(f"[red]Repository not found: {repo}[/]")
+        raise typer.Exit(1)
+
+    if baseline not in ("low", "moderate", "high"):
+        console.print(f"[red]Invalid baseline: {baseline}. Use low, moderate, or high.[/]")
+        raise typer.Exit(1)
+
+    # Optionally run a scan first
+    if scan_first:
+        console.print("[dim]Running security scan before SSP generation...[/]\n")
+        from honeymoon.controller import Controller
+        from honeymoon.config_loader import load_config
+        from honeymoon.mission import load_mission
+        from honeymoon.task import Task
+
+        config = load_config(repo)
+        mission = load_mission("investigate")
+        task = Task.from_interactive(
+            "Map all security boundaries and trust zones. "
+            "Trace paths from user input to shell execution or file system access. "
+            "Flag any hardcoded credentials, API keys, or secrets."
+        )
+        ctrl = Controller(repo, config, mission=mission)
+        ctrl.run(task)
+
+    html_path = generate_ssp(repo, baseline=baseline)
+
+    if open_report and html_path.exists():
+        import webbrowser
+        webbrowser.open(f"file://{html_path}")
+        console.print(f"  [bold]Opened:[/]   {html_path}")
+
+
 def _auto_detect_objective(repo: Path) -> str:
     """Auto-detect an investigation objective based on repo characteristics."""
     # Check for common patterns
