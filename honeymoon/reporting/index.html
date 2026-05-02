@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HONEYMOON Attestation Dashboard</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a0a0b; color: #e5e7eb; font-family: 'DM Sans', -apple-system, sans-serif; }
+  body { background: #141414; color: #e5e7eb; font-family: 'Outfit', -apple-system, sans-serif; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-  ::selection { background: rgba(245,158,11,0.3); }
-  .honeycomb-bg { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23f59e0b' fill-opacity='0.03'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
-  input::placeholder { color: #4b5563; }
+  ::-webkit-scrollbar-thumb { background: rgba(212,181,106,0.2); border-radius: 2px; }
+  ::selection { background: rgba(212,181,106,0.3); }
+  .honeycomb-bg { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='49' viewBox='0 0 28 49'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23D4B56A' fill-opacity='0.02'%3E%3Cpath d='M13.99 9.25l13 7.5v15l-13 7.5L1 31.75v-15l12.99-7.5zM3 17.9v12.7l10.99 6.34 11-6.35V17.9l-11-6.34L3 17.9zM0 15l12.98-7.5V0h-2v6.35L0 12.69v2.3zm0 18.5L12.98 41v8h-2v-6.85L0 35.81v-2.3zM15 0v7.5L27.99 15H28v-2.31h-.01L17 6.35V0h-2zm0 49v-8l12.99-7.5H28v2.31h-.01L17 42.15V49h-2z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+  input::placeholder { color: #8A7D65; }
   .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
 </style>
 </head>
@@ -58,22 +58,22 @@ function groupByRun(events) {
 // ---------------------------------------------------------------------------
 
 const AGENT_COLORS = {
-  system:'#78716c', controller:'#d97706', planner:'#f59e0b', implementer:'#eab308',
-  debugger:'#ef4444', security:'#10b981', release:'#06b6d4', archivist:'#a855f7',
+  system:'#8A7D65', controller:'#D4B56A', planner:'#D4B56A', implementer:'#FBBF24',
+  debugger:'#ef4444', security:'#4ADE80', release:'#06b6d4', archivist:'#a855f7',
   testgen:'#14b8a6',
 };
 
 const EVENT_ICONS = {
-  'run.started':'⚡', 'run.completed':'🏁',
-  'action.started':'▶', 'action.completed':'✓',
-  'pipeline.step_started':'◆', 'pipeline.step_completed':'◇', 'pipeline.step_skipped':'◌',
-  'plan_created':'🧠', 'implementation_created':'🔧', 'tests_passed':'✅', 'tests_failed':'❌',
-  'debug_completed':'🐛', 'testgen_created':'🛡', 'security_review':'🔒', 'release_assessment':'📦',
-  'workspace_created':'📂', 'repo_indexed':'🗂', 'prelude_constraints_loaded':'📋',
-  'core_override':'⚠', 'boundary_violation':'🚫',
+  'run.started':'>', 'run.completed':'=',
+  'action.started':'>', 'action.completed':'v',
+  'pipeline.step_started':'*', 'pipeline.step_completed':'o', 'pipeline.step_skipped':'-',
+  'plan_created':'P', 'implementation_created':'I', 'tests_passed':'T', 'tests_failed':'X',
+  'debug_completed':'D', 'testgen_created':'G', 'security_review':'S', 'release_assessment':'R',
+  'workspace_created':'W', 'repo_indexed':'F', 'prelude_constraints_loaded':'C',
+  'core_override':'!', 'boundary_violation':'B',
 };
 
-// Pipeline-internal events (emitted via emit_event) — show with richer context
+// Pipeline-internal events (emitted via emit_event) -- show with richer context
 const PIPELINE_EVENTS = new Set([
   'plan_created', 'implementation_created', 'tests_passed', 'tests_failed',
   'debug_completed', 'testgen_created', 'security_review', 'release_assessment',
@@ -82,18 +82,18 @@ const PIPELINE_EVENTS = new Set([
 ]);
 
 const STATUS_COLORS = {
-  pr_created:'#10b981', merged:'#10b981', committed:'#f59e0b',
-  security_blocked:'#ef4444', security_failed:'#ef4444', tests_failed:'#ef4444',
-  plan_failed:'#6b7280', error:'#ef4444', budget_exceeded:'#f59e0b',
+  pr_created:'#4ADE80', merged:'#4ADE80', committed:'#FBBF24',
+  security_blocked:'#F87171', security_failed:'#F87171', tests_failed:'#F87171',
+  plan_failed:'#8A7D65', error:'#F87171', budget_exceeded:'#FBBF24',
 };
 
 // ---------------------------------------------------------------------------
 // Formatters
 // ---------------------------------------------------------------------------
 
-function formatTime(ts) { if (!ts) return '—'; try { return new Date(ts).toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}); } catch{return ts;} }
-function formatDate(ts) { if (!ts) return '—'; try { return new Date(ts).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}); } catch{return ts;} }
-function duration(s,e) { if(!s||!e)return '—'; const ms=new Date(e)-new Date(s); if(ms<1000)return ms+'ms'; if(ms<60000)return (ms/1000).toFixed(1)+'s'; return (ms/60000).toFixed(1)+'m'; }
+function formatTime(ts) { if (!ts) return '--'; try { return new Date(ts).toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}); } catch{return ts;} }
+function formatDate(ts) { if (!ts) return '--'; try { return new Date(ts).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}); } catch{return ts;} }
+function duration(s,e) { if(!s||!e)return '--'; const ms=new Date(e)-new Date(s); if(ms<1000)return ms+'ms'; if(ms<60000)return (ms/1000).toFixed(1)+'s'; return (ms/60000).toFixed(1)+'m'; }
 
 function eventSummary(ev) {
   const p = ev.payload || {};
@@ -102,7 +102,7 @@ function eventSummary(ev) {
     case 'implementation_created': return `${p.changes||0} changes, ${p.tests||0} tests`;
     case 'tests_passed': return `attempt ${p.attempt||'?'}`;
     case 'tests_failed': return `attempt ${p.attempt||'?'}`;
-    case 'debug_completed': return `${p.status||'?'} — ${(p.diagnosis||'').slice(0,60)}`;
+    case 'debug_completed': return `${p.status||'?'} -- ${(p.diagnosis||'').slice(0,60)}`;
     case 'testgen_created': return p.file||'';
     case 'security_review': return `verdict=${p.verdict||'?'}, ${p.issues_count||0} issues`;
     case 'release_assessment': return `bump=${p.version_bump||'none'}`;
@@ -111,7 +111,7 @@ function eventSummary(ev) {
     case 'boundary_violation': return p.error||'';
     case 'core_override': return (p.files||[]).join(', ');
     case 'pipeline.step_started': return `${p.agent_role||'?'}`;
-    case 'pipeline.step_completed': return `${p.agent_role||'?'} → ${p.status||'?'}`;
+    case 'pipeline.step_completed': return `${p.agent_role||'?'} -> ${p.status||'?'}`;
     case 'pipeline.step_skipped': return `${p.agent_role||'?'} (${p.skip_reason||'?'})`;
     case 'action.completed': return p.command||'';
     case 'action.started': return p.command||'';
@@ -120,34 +120,40 @@ function eventSummary(ev) {
 }
 
 // ---------------------------------------------------------------------------
+// Inline Honeymoon Logo SVG
+// ---------------------------------------------------------------------------
+
+const LOGO_SVG = `<svg width="120" height="25" viewBox="0 0 698 145" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M88.4404 124.876C97.4948 124.876 104.904 124.966 104.914 125.075C104.914 125.45 88.7612 145.016 88.4648 145C88.3678 144.991 86.6194 142.965 84.5801 140.499C77.1686 131.536 71.9678 125.15 71.9678 125.015C71.9709 124.939 79.3821 124.876 88.4404 124.876ZM88.5938 102.6C104.595 102.6 117.691 102.666 117.727 102.748C117.727 102.83 117.301 104.238 116.782 105.876C115.795 108.99 113.491 113.728 111.515 116.707L110.354 118.456L89.2539 118.538C77.6496 118.583 67.8023 118.574 67.3701 118.518C66.7646 118.438 66.2302 117.848 65.0225 115.924C62.3492 111.665 59.46 105.031 59.46 103.152C59.46 102.622 60.6685 102.6 88.5938 102.6ZM470.941 52.2246C472.962 52.1341 474.937 52.1836 475.331 52.335C475.863 52.539 475.532 53.7108 474.043 56.8867C472.94 59.2395 466.695 73.0098 460.165 87.4883L448.293 113.813L444.091 113.974C441.779 114.062 439.888 113.917 439.888 113.651C439.889 113.384 441.88 108.901 444.314 103.688L448.741 94.2051L446.006 88.1055C444.502 84.7501 440.316 75.4143 436.706 67.3604C433.096 59.3059 430.221 52.6374 430.317 52.542C430.414 52.446 432.411 52.3719 434.757 52.3779L439.022 52.3877L445.9 68.415C449.681 77.2237 452.913 84.4392 453.087 84.457C453.256 84.4653 455.206 80.234 457.419 75.0547C459.632 69.8749 462.754 62.6556 464.355 59.0127L467.269 52.3877L470.941 52.2246ZM623.763 51.6035C639.836 48.4416 653.64 61.7314 651.124 77.9453C649.446 88.759 641.857 95.9685 630.683 97.3643C619.517 98.7589 608.462 90.7346 606.048 79.4844C603.312 66.7309 611.376 54.0408 623.763 51.6035ZM300.546 52.0117C304.734 50.9171 306.305 50.844 310.564 51.541C324.095 53.7568 332.319 66.7576 328.78 80.3398C326.387 89.5267 319.833 95.4688 310.283 97.1104C300.676 98.7623 290.503 93.8409 286.349 85.5303C279.382 71.5921 286.074 55.7932 300.546 52.0117ZM402.132 51.5713C405.499 50.8617 411.369 51.3787 414.887 52.6943C422.503 55.5435 427.818 64.2405 427.818 73.8525V76.2451H410.264C390.525 76.2451 391.944 75.8658 393.766 80.6592C396.201 87.0661 400.486 89.9646 407.491 89.9443C412.483 89.9301 415.521 88.7325 418.869 85.46L421.165 83.2158L423.943 84.998C425.471 85.978 426.721 87.0118 426.722 87.2949C426.722 88.5585 421.352 93.3913 418.255 94.916C409.256 99.3452 398.549 97.8232 391.445 91.1064C383.732 83.8127 382.218 71.0644 387.932 61.5127C390.924 56.5103 396.193 52.8223 402.132 51.5713ZM573.47 51.3701C576.308 50.9407 582.013 51.5696 585.098 52.6533C589.351 54.1478 592.822 56.8572 595.505 60.7773C598.608 65.3097 599.257 67.7231 599.23 74.6006C599.201 82.0684 597.988 85.3384 593.452 90.1865C586.639 97.4682 576.104 99.4566 566.825 95.21C558.785 91.5299 553.986 83.743 554.001 74.4053C554.021 62.1421 561.609 53.1657 573.47 51.3701ZM516.909 57.332C519.335 53.6314 527.066 50.5788 532.266 51.2686C538.317 52.0709 542.427 54.961 544.777 60.0664C545.995 62.7105 546.046 63.4138 546.207 79.6982L546.373 96.5869L542.377 96.4258L538.381 96.2637L538.222 81.7295C538.134 73.7361 537.934 66.4015 537.777 65.4297C537.621 64.4585 536.836 62.8826 536.032 61.9277C531.296 56.3007 521.788 58.2718 518.561 65.5508C518.293 66.1541 517.948 73.3116 517.794 81.4561L517.514 96.2637H509.833L509.559 80.2607C509.299 65.1121 509.223 64.1743 508.137 62.71C503.764 56.8151 495.201 57.4181 491.181 63.9033L489.535 66.5586L489.365 81.5713L489.196 96.585L485.353 96.4248L481.509 96.2637L481.431 74.3262L481.352 52.3877H488.986L489.154 54.707L489.323 57.0264L492.027 54.8896C494.466 52.9631 496.044 52.2086 499.41 51.3613C500.967 50.9693 505.265 51.3879 508.029 52.2012C509.599 52.663 511.324 53.8499 513.215 55.7705L516.047 58.6475L516.909 57.332ZM355.583 51.5625C358.226 51.0086 363.363 51.341 365.96 52.2344C370.53 53.8063 373.651 57.1083 375.381 62.2031C376.396 65.193 376.902 78.9148 376.399 89.8242L376.09 96.5381H368.571L368.567 83.7861C368.566 76.7728 368.328 69.5889 368.038 67.8213C367.397 63.9087 365.457 61.1662 362.325 59.7441C355.783 56.7748 348.054 60.5918 346.127 67.7441C345.782 69.0264 345.535 75.4764 345.533 83.2627L345.53 96.5859L337.575 96.2637V52.3877L339.746 52.2109C340.94 52.1139 342.729 52.1866 343.723 52.373C345.453 52.6977 345.53 52.8181 345.53 55.2188V57.7266L347.691 55.7734C350.331 53.389 352.572 52.1943 355.583 51.5625ZM677.616 51.5625C684.209 50.1837 691.578 52.9074 694.926 57.959C697.668 62.097 698 64.6065 698 81.1816V96.2637L690.045 96.5859V83.1523C690.045 75.3951 689.789 68.5208 689.438 66.8848C687.582 58.2372 676.539 55.7847 670.486 62.6758C667.708 65.8396 667.473 67.3297 667.371 82.4209L667.278 96.2637L663.302 96.4248L659.324 96.5859V52.3877H666.73L666.897 54.9932C666.989 56.4257 667.148 57.5986 667.251 57.5986C667.355 57.5972 668.25 56.8386 669.242 55.9121C671.481 53.8216 674.627 52.1877 677.616 51.5625ZM270.236 31.9355L274.487 32.0957V96.2637L270.236 96.4238L265.984 96.584V68.0186H229.796L229.649 82.1416L229.503 96.2637L225.251 96.4238L221 96.584V31.7754L225.251 31.9355L229.503 32.0957L229.649 45.9443L229.796 59.792H265.984V31.7754L270.236 31.9355ZM116.406 81.1611C117.596 84.0071 118.404 88.1226 118.562 92.1475L118.722 96.1904H58.1475L58.335 92.2998C58.5256 88.3474 59.1839 84.9512 60.377 81.7617L61.0293 80.0176H115.928L116.406 81.1611ZM634.181 59.7666C626.652 56.3728 616.962 60.8344 614.602 68.7803C611.363 79.6822 618.02 89.9453 628.329 89.9453C636.733 89.9451 642.879 83.5397 642.962 74.6924C643.03 67.4447 640.076 62.4238 634.181 59.7666ZM581.635 59.3623C578.941 58.5665 574.178 58.581 571.645 59.3916C570.64 59.713 568.617 61.0554 567.149 62.375C563.466 65.6854 562.029 69.516 562.354 75.1484C562.873 84.0951 568.548 89.9228 576.761 89.9395C587.178 89.9608 593.737 79.716 590.431 68.5859C589.334 64.8938 585.009 60.3594 581.635 59.3623ZM312.614 59.8369C309.377 58.3721 303.878 58.3271 300.765 59.7402C297.798 61.0878 294.645 64.3023 293.23 67.4219C291.645 70.9188 291.636 77.7199 293.213 81.1816C294.866 84.8095 296.93 86.9754 300.311 88.6289C302.968 89.9286 303.785 90.0691 307.359 89.8398C310.455 89.6413 311.999 89.2309 313.951 88.0869C318.904 85.1851 321.726 79.3733 321.268 73.0186C320.824 66.8645 317.73 62.1519 312.614 59.8369ZM176.82 59.0371C176.598 63.2973 175.787 66.5079 173.994 70.2344C169.452 79.6756 161.446 85.6697 151.539 87.0479C145.251 87.9223 137.634 85.972 132.616 82.2021C131.726 81.5335 125.301 75.2752 118.339 68.2949L105.68 55.6035H177L176.82 59.0371ZM71.8145 55.623L59.002 68.3037C51.9554 75.2778 45.3543 81.5862 44.332 82.3232C39.852 85.5527 35.0728 87.082 29.2588 87.1465C25.0088 87.1935 22.1371 86.6734 18.5186 85.2002C9.90844 81.6951 3.0473 73.5635 0.883789 64.3008C0.257219 61.618 -0.221182 56.4701 0.106445 55.9395C0.263723 55.6986 10.3844 55.6063 36.0645 55.6133L71.8145 55.623ZM104.535 61.0205C109.266 67.7592 112.946 73.3057 112.789 73.4619C112.678 73.5447 101.678 73.5772 88.3213 73.5342L64.0039 73.4561L67.9297 67.6582C70.0886 64.4692 72.6009 60.8011 73.5127 59.5078L75.1709 57.1572L101.804 57.1299L104.535 61.0205ZM411.909 59.29C407.719 57.3909 402.19 58.0448 398.154 60.918C396.249 62.2743 393.27 67.1829 393.263 68.9785L393.258 70.2129H419.677L419.292 68.4297C418.349 64.0632 415.986 61.1377 411.909 59.29ZM59.7422 0.139648C65.0976 0.370964 69.0468 2.08832 72.9004 5.8623C76.2834 9.17574 78.4198 13.5858 79.1553 18.7734C79.3252 19.9715 79.4549 20.2028 79.8604 20.0322C85.3779 17.7088 90.7757 17.5099 95.5947 19.4521C96.5915 19.8537 97.4391 20.1509 97.4805 20.1133C97.5189 20.0748 97.8305 18.672 98.1719 16.9961C100.217 6.95493 108.251 0.0857538 117.97 0.0683594C120.253 0.0640951 120.574 0.136717 121.249 0.8125C122.299 1.86218 122.244 3.22117 121.106 4.35938C120.293 5.17264 120.029 5.25195 118.11 5.25195C114.121 5.25203 110.314 6.9221 107.409 9.94824C104.593 12.8818 103.454 15.5645 102.756 20.9043L102.377 23.7988L103.45 25.1299C106.227 28.576 107.351 31.6047 107.566 36.2256C107.814 41.5095 106.62 45.2377 103.242 49.7324L101.808 51.6436L88.502 51.5635L75.1973 51.4844L73.751 49.6875C67.9619 42.4988 67.7651 32.7863 73.2598 25.4307L74.4854 23.79L74.2812 21.5381C73.9972 18.4004 73.0571 14.9392 71.9775 13.0518C69.1724 8.14765 64.2603 5.25195 58.7461 5.25195C57.109 5.25195 56.6076 5.12778 55.9688 4.56543C54.762 3.50324 54.6545 2.21404 55.6729 1.00293L56.5176 0L59.7422 0.139648Z" fill="#D4B56A"/></svg>`;
+
+// ---------------------------------------------------------------------------
 // Components
 // ---------------------------------------------------------------------------
 
 function SignatureBadge({sig}) {
-  const short = sig ? sig.slice(0,12)+'…' : 'unsigned';
+  const short = sig ? sig.slice(0,12)+'...' : 'unsigned';
   const has = !!sig;
-  return <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2px 8px',borderRadius:3,background:has?'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',border:'1px solid '+(has?'rgba(16,185,129,0.3)':'rgba(239,68,68,0.3)'),fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:has?'#6ee7b7':'#fca5a5'}}>
-    <span style={{fontSize:10}}>{has?'🔏':'⚠'}</span>{short}
+  return <span style={{display:'inline-flex',alignItems:'center',gap:4,padding:'2px 8px',borderRadius:2,background:has?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',border:'1px solid '+(has?'rgba(74,222,128,0.3)':'rgba(248,113,113,0.3)'),fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:has?'#4ADE80':'#F87171'}}>
+    <span style={{fontSize:10}}>{has?'S':'!'}</span>{short}
   </span>;
 }
 
 function AgentBadge({agent}) {
-  const c = AGENT_COLORS[agent]||'#6b7280';
-  return <span style={{display:'inline-block',padding:'1px 8px',borderRadius:3,background:c+'22',border:'1px solid '+c+'55',fontSize:11,fontWeight:600,color:c,textTransform:'uppercase',letterSpacing:'0.05em'}}>{agent}</span>;
+  const c = AGENT_COLORS[agent]||'#8A7D65';
+  return <span style={{display:'inline-block',padding:'1px 8px',borderRadius:2,background:c+'22',border:'1px solid '+c+'55',fontSize:11,fontWeight:600,color:c,textTransform:'uppercase',letterSpacing:'0.05em'}}>{agent}</span>;
 }
 
 function StatusBadge({status}) {
-  const c = STATUS_COLORS[status]||'#6b7280';
-  return <span style={{display:'inline-block',padding:'2px 10px',borderRadius:3,background:c+'22',border:'1px solid '+c+'55',fontSize:11,fontWeight:700,color:c,textTransform:'uppercase',letterSpacing:'0.08em'}}>{status||'in-progress'}</span>;
+  const c = STATUS_COLORS[status]||'#8A7D65';
+  return <span style={{display:'inline-block',padding:'2px 10px',borderRadius:2,background:c+'22',border:'1px solid '+c+'55',fontSize:11,fontWeight:700,color:c,textTransform:'uppercase',letterSpacing:'0.08em'}}>{status||'in-progress'}</span>;
 }
 
 function QualityGauge({score}) {
   if(!score)return null;
   const v=score.score||0;
-  const c=v>=80?'#10b981':v>=50?'#f59e0b':'#ef4444';
+  const c=v>=80?'#4ADE80':v>=50?'#FBBF24':'#F87171';
   return <div style={{display:'flex',alignItems:'center',gap:8}}>
-    <div style={{width:120,height:6,borderRadius:3,background:'rgba(255,255,255,0.06)',overflow:'hidden'}}>
-      <div style={{width:v+'%',height:'100%',borderRadius:3,background:'linear-gradient(90deg,'+c+'88,'+c+')',transition:'width 0.6s ease'}}/>
+    <div style={{width:120,height:6,borderRadius:2,background:'#2A2720',overflow:'hidden'}}>
+      <div style={{width:v+'%',height:'100%',borderRadius:2,background:'linear-gradient(90deg,'+c+'88,'+c+')',transition:'width 0.6s ease'}}/>
     </div>
     <span className="mono" style={{fontSize:13,fontWeight:700,color:c}}>{v}/100</span>
   </div>;
@@ -160,17 +166,17 @@ function EventTypeBadge({type}) {
   const isRun = type.startsWith('run.');
 
   let bg, border, color;
-  if (isRun) { bg='rgba(245,158,11,0.1)'; border='rgba(245,158,11,0.3)'; color='#fbbf24'; }
+  if (isRun) { bg='rgba(212,181,106,0.1)'; border='rgba(212,181,106,0.3)'; color='#D4B56A'; }
   else if (isPipeline) { bg='rgba(99,102,241,0.1)'; border='rgba(99,102,241,0.3)'; color='#a5b4fc'; }
   else if (isStep) { bg='rgba(139,92,246,0.1)'; border='rgba(139,92,246,0.3)'; color='#c4b5fd'; }
   else if (isAction) { bg='rgba(59,130,246,0.08)'; border='rgba(59,130,246,0.25)'; color='#93c5fd'; }
-  else { bg='rgba(255,255,255,0.04)'; border='rgba(255,255,255,0.1)'; color='#9ca3af'; }
+  else { bg='rgba(138,125,101,0.08)'; border='rgba(138,125,101,0.2)'; color='#B8A880'; }
 
-  return <span className="mono" style={{fontSize:11,padding:'1px 6px',borderRadius:3,background:bg,border:'1px solid '+border,color}}>{type}</span>;
+  return <span className="mono" style={{fontSize:11,padding:'1px 6px',borderRadius:2,background:bg,border:'1px solid '+border,color}}>{type}</span>;
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline Progress Bar — shows which agents fired for a run
+// Pipeline Progress Bar -- shows which agents fired for a run
 // ---------------------------------------------------------------------------
 
 function PipelineBar({events}) {
@@ -185,7 +191,7 @@ function PipelineBar({events}) {
 
   return <div style={{display:'flex',gap:2,alignItems:'center'}}>
     {PIPELINE_ORDER.map(role => {
-      const c = AGENT_COLORS[role]||'#6b7280';
+      const c = AGENT_COLORS[role]||'#8A7D65';
       const done = completed.has(role);
       const skip = skipped.has(role);
       const opacity = done ? 1 : skip ? 0.3 : 0.1;
@@ -205,28 +211,28 @@ function PipelineBar({events}) {
 
 function EventRow({ev, isLast}) {
   const [expanded, setExpanded] = useState(false);
-  const icon = EVENT_ICONS[ev.event_type] || '•';
+  const icon = EVENT_ICONS[ev.event_type] || '.';
   const isError = ev.payload?.returncode && ev.payload.returncode !== 0;
   const summary = eventSummary(ev);
 
   return <div style={{position:'relative',paddingLeft:28}}>
-    {!isLast && <div style={{position:'absolute',left:9,top:20,bottom:-4,width:1,background:'rgba(255,255,255,0.06)'}}/>}
-    <div style={{position:'absolute',left:4,top:6,width:12,height:12,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',background:isError?'rgba(239,68,68,0.2)':'rgba(255,255,255,0.04)',border:'1px solid '+(isError?'rgba(239,68,68,0.4)':'rgba(255,255,255,0.1)'),fontSize:7}}>
+    {!isLast && <div style={{position:'absolute',left:9,top:20,bottom:-4,width:1,background:'#3D382E'}}/>}
+    <div style={{position:'absolute',left:4,top:6,width:12,height:12,borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center',background:isError?'rgba(248,113,113,0.2)':'rgba(212,181,106,0.1)',border:'1px solid '+(isError?'rgba(248,113,113,0.4)':'rgba(212,181,106,0.3)'),fontSize:7,fontFamily:"'JetBrains Mono',monospace",color:isError?'#F87171':'#D4B56A'}}>
       <span>{icon}</span>
     </div>
-    <div onClick={()=>setExpanded(!expanded)} style={{padding:'5px 10px',marginBottom:1,borderRadius:4,cursor:'pointer',background:expanded?'rgba(255,255,255,0.03)':'transparent',transition:'background 0.15s'}}>
+    <div onClick={()=>setExpanded(!expanded)} style={{padding:'5px 10px',marginBottom:1,borderRadius:2,cursor:'pointer',background:expanded?'#2A2720':'transparent',transition:'background 0.15s'}}>
       <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-        <span className="mono" style={{fontSize:10,color:'#4b5563',minWidth:56}}>{formatTime(ev.timestamp)}</span>
+        <span className="mono" style={{fontSize:10,color:'#8A7D65',minWidth:56}}>{formatTime(ev.timestamp)}</span>
         <AgentBadge agent={ev.agent_id}/>
         <EventTypeBadge type={ev.event_type}/>
-        {summary && <span className="mono" style={{fontSize:11,color:isError?'#fca5a5':'#9ca3af',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:350}}>{summary}</span>}
+        {summary && <span className="mono" style={{fontSize:11,color:isError?'#F87171':'#B8A880',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:350}}>{summary}</span>}
         <span style={{marginLeft:'auto'}}><SignatureBadge sig={ev._envelope?.signature}/></span>
       </div>
-      {expanded && <div style={{marginTop:8,padding:12,borderRadius:4,background:'rgba(0,0,0,0.6)',border:'1px solid rgba(255,255,255,0.1)',fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:'#d1d5db',maxHeight:300,overflow:'auto',whiteSpace:'pre-wrap',wordBreak:'break-all'}}>
-        <div style={{color:'#9ca3af'}}>{JSON.stringify(ev.payload, null, 2)}</div>
-        <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid rgba(255,255,255,0.1)'}}>
-          <div style={{color:'#6b7280',marginBottom:4,fontSize:10,textTransform:'uppercase',letterSpacing:'0.1em'}}>envelope</div>
-          <div style={{color:'#9ca3af'}}>label: {ev._envelope?.label}{'\n'}signer: {ev._envelope?.signer}{'\n'}sig: {ev._envelope?.signature}</div>
+      {expanded && <div style={{marginTop:8,padding:12,borderRadius:2,background:'#141414',border:'1px solid #3D382E',fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:'#e5e7eb',maxHeight:300,overflow:'auto',whiteSpace:'pre-wrap',wordBreak:'break-all'}}>
+        <div style={{color:'#B8A880'}}>{JSON.stringify(ev.payload, null, 2)}</div>
+        <div style={{marginTop:8,paddingTop:8,borderTop:'1px solid #3D382E'}}>
+          <div style={{color:'#8A7D65',marginBottom:4,fontSize:10,textTransform:'uppercase',letterSpacing:'0.1em'}}>envelope</div>
+          <div style={{color:'#B8A880'}}>label: {ev._envelope?.label}{'\n'}signer: {ev._envelope?.signer}{'\n'}sig: {ev._envelope?.signature}</div>
         </div>
       </div>}
     </div>
@@ -250,20 +256,20 @@ function RunCard({run}) {
   const relAssess = run.events.find(e => e.event_type === 'release_assessment');
   const testResult = run.events.find(e => e.event_type === 'tests_passed' || e.event_type === 'tests_failed');
 
-  return <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,overflow:'hidden',marginBottom:12,transition:'border-color 0.2s'}}
-    onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.18)'}
-    onMouseLeave={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}>
+  return <div style={{background:'#181816',border:'1px solid #3D382E',borderRadius:2,overflow:'hidden',marginBottom:12,transition:'border-color 0.2s'}}
+    onMouseEnter={e=>e.currentTarget.style.borderColor='#D4B56A'}
+    onMouseLeave={e=>e.currentTarget.style.borderColor='#3D382E'}>
 
     {/* Header */}
-    <div onClick={()=>setOpen(!open)} style={{padding:'16px 20px',cursor:'pointer',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',borderBottom:open?'1px solid rgba(255,255,255,0.06)':'none'}}>
-      <span className="mono" style={{fontSize:14,color:'#f3f4f6',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
-        <span style={{color:open?'#f59e0b':'#6b7280',transition:'transform 0.2s,color 0.2s',display:'inline-block',transform:open?'rotate(90deg)':'rotate(0)'}}>▸</span>
+    <div onClick={()=>setOpen(!open)} style={{padding:'16px 20px',cursor:'pointer',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap',borderBottom:open?'1px solid #3D382E':'none'}}>
+      <span className="mono" style={{fontSize:14,color:'#e5e7eb',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
+        <span style={{color:open?'#D4B56A':'#8A7D65',transition:'transform 0.2s,color 0.2s',display:'inline-block',transform:open?'rotate(90deg)':'rotate(0)'}}>&#x25B8;</span>
         {run.taskId || run.id.slice(0,8)}
       </span>
       <StatusBadge status={run.status}/>
-      <span style={{fontSize:11,color:'#6b7280'}}>{formatDate(run.startTime)} {formatTime(run.startTime)}</span>
-      <span style={{fontSize:11,color:'#9ca3af'}}>
-        {dur} · {actionCount} actions · {pipelineEvents.length} pipeline · {errorCount > 0 ? <span style={{color:'#ef4444'}}>{errorCount} errors</span> : <span style={{color:'#9ca3af'}}>0 errors</span>}
+      <span style={{fontSize:11,color:'#8A7D65'}}>{formatDate(run.startTime)} {formatTime(run.startTime)}</span>
+      <span style={{fontSize:11,color:'#B8A880'}}>
+        {dur} &middot; {actionCount} actions &middot; {pipelineEvents.length} pipeline &middot; {errorCount > 0 ? <span style={{color:'#F87171'}}>{errorCount} errors</span> : <span style={{color:'#B8A880'}}>0 errors</span>}
       </span>
       <div style={{marginLeft:'auto',display:'flex',gap:4}}>
         {agents.filter(a => a !== 'system').map(a => <AgentBadge key={a} agent={a}/>)}
@@ -272,34 +278,34 @@ function RunCard({run}) {
 
     {/* Expanded */}
     {open && <div style={{padding:'12px 20px 20px'}}>
-      {run.objective && <div style={{padding:'10px 14px',marginBottom:16,borderRadius:4,background:'rgba(245,158,11,0.05)',border:'1px solid rgba(245,158,11,0.15)',fontSize:13,color:'#fbbf24',lineHeight:1.5}}>{run.objective}</div>}
+      {run.objective && <div style={{padding:'10px 14px',marginBottom:16,borderRadius:2,background:'rgba(212,181,106,0.05)',border:'1px solid rgba(212,181,106,0.15)',fontSize:13,color:'#D4B56A',lineHeight:1.5}}>{run.objective}</div>}
 
       {/* Pipeline Progress */}
-      <div style={{marginBottom:16,padding:'10px 14px',background:'rgba(255,255,255,0.02)',borderRadius:4}}>
-        <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Pipeline</div>
+      <div style={{marginBottom:16,padding:'10px 14px',background:'#2A2720',borderRadius:2}}>
+        <div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Pipeline</div>
         <PipelineBar events={run.events}/>
       </div>
 
       {/* Stats Row */}
-      <div style={{display:'flex',gap:24,marginBottom:16,padding:'10px 14px',background:'rgba(255,255,255,0.02)',borderRadius:4,flexWrap:'wrap'}}>
+      <div style={{display:'flex',gap:24,marginBottom:16,padding:'10px 14px',background:'#2A2720',borderRadius:2,flexWrap:'wrap'}}>
         {[
           {l:'Duration', v:dur},
           {l:'Events', v:run.events.length},
           {l:'Signed', v:run.events.filter(e=>e._envelope?.signature).length},
           {l:'Agents', v:agents.length},
-        ].map(({l,v}) => <div key={l}><div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>{l}</div><div className="mono" style={{fontSize:14,color:'#e5e7eb',fontWeight:600}}>{v}</div></div>)}
+        ].map(({l,v}) => <div key={l}><div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>{l}</div><div className="mono" style={{fontSize:14,color:'#e5e7eb',fontWeight:600}}>{v}</div></div>)}
 
-        {secReview && <div><div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Security</div><div className="mono" style={{fontSize:14,fontWeight:600,color:secReview.payload?.verdict==='pass'?'#10b981':secReview.payload?.verdict==='block'?'#ef4444':'#f59e0b'}}>{secReview.payload?.verdict||'?'}</div></div>}
+        {secReview && <div><div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Security</div><div className="mono" style={{fontSize:14,fontWeight:600,color:secReview.payload?.verdict==='pass'?'#4ADE80':secReview.payload?.verdict==='block'?'#F87171':'#FBBF24'}}>{secReview.payload?.verdict||'?'}</div></div>}
 
-        {relAssess && <div><div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Version</div><div className="mono" style={{fontSize:14,color:'#06b6d4',fontWeight:600}}>{relAssess.payload?.version_bump||'none'}</div></div>}
+        {relAssess && <div><div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Version</div><div className="mono" style={{fontSize:14,color:'#06b6d4',fontWeight:600}}>{relAssess.payload?.version_bump||'none'}</div></div>}
 
-        {testResult && <div><div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Tests</div><div className="mono" style={{fontSize:14,fontWeight:600,color:testResult.event_type==='tests_passed'?'#10b981':'#ef4444'}}>{testResult.event_type==='tests_passed'?'pass':'fail'} (#{testResult.payload?.attempt||'?'})</div></div>}
+        {testResult && <div><div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Tests</div><div className="mono" style={{fontSize:14,fontWeight:600,color:testResult.event_type==='tests_passed'?'#4ADE80':'#F87171'}}>{testResult.event_type==='tests_passed'?'pass':'fail'} (#{testResult.payload?.attempt||'?'})</div></div>}
 
-        {run.qualityScore && <div><div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Quality</div><QualityGauge score={run.qualityScore}/></div>}
+        {run.qualityScore && <div><div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Quality</div><QualityGauge score={run.qualityScore}/></div>}
 
-        {run.qualityScore?.tokens_used && <div><div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Tokens</div><div className="mono" style={{fontSize:14,color:'#e5e7eb',fontWeight:600}}>{run.qualityScore.tokens_used.toLocaleString()}</div></div>}
+        {run.qualityScore?.tokens_used && <div><div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Tokens</div><div className="mono" style={{fontSize:14,color:'#e5e7eb',fontWeight:600}}>{run.qualityScore.tokens_used.toLocaleString()}</div></div>}
 
-        {run.qualityScore?.debug_attempts > 0 && <div><div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Debug Loops</div><div className="mono" style={{fontSize:14,color:'#f59e0b',fontWeight:600}}>{run.qualityScore.debug_attempts}</div></div>}
+        {run.qualityScore?.debug_attempts > 0 && <div><div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:2}}>Debug Loops</div><div className="mono" style={{fontSize:14,color:'#FBBF24',fontWeight:600}}>{run.qualityScore.debug_attempts}</div></div>}
       </div>
 
       {/* Event Timeline */}
@@ -315,7 +321,7 @@ function RunCard({run}) {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Findings Tab — Investigation Reports
+// Findings Tab -- Investigation Reports
 // ---------------------------------------------------------------------------
 
 const SEV_COLORS = {critical:'#ef4444',high:'#f97316',medium:'#eab308',low:'#3b82f6',info:'#6b7280'};
@@ -323,16 +329,16 @@ const SEV_COLORS = {critical:'#ef4444',high:'#f97316',medium:'#eab308',low:'#3b8
 function FindingCard({finding, index}) {
   const [open, setOpen] = useState(false);
   const sev = (finding.severity||'info').toLowerCase();
-  const c = SEV_COLORS[sev]||'#6b7280';
-  return <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,marginBottom:8,overflow:'hidden'}}>
+  const c = SEV_COLORS[sev]||'#8A7D65';
+  return <div style={{background:'#181816',border:'1px solid #3D382E',borderLeft:'3px solid '+c,borderRadius:2,marginBottom:8,overflow:'hidden'}}>
     <div onClick={()=>setOpen(!open)} style={{padding:'12px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:10}}>
       <span style={{fontSize:12,fontWeight:700,color:c,minWidth:50,textTransform:'uppercase'}}>{sev}</span>
-      <span style={{fontSize:14,fontWeight:600,color:'#f3f4f6',flex:1}}>{finding.title||`Finding ${index}`}</span>
-      <span className="mono" style={{fontSize:11,color:'#6b7280'}}>{finding.confidence||'?'}</span>
+      <span style={{fontSize:14,fontWeight:600,color:'#e5e7eb',flex:1}}>{finding.title||`Finding ${index}`}</span>
+      <span className="mono" style={{fontSize:11,color:'#8A7D65'}}>{finding.confidence||'?'}</span>
     </div>
     {open && <div style={{padding:'0 16px 16px'}}>
-      {finding.evidence && <div style={{background:'rgba(0,0,0,0.5)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:6,padding:'10px 14px',marginBottom:8,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'#9ca3af',whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{finding.evidence}</div>}
-      {finding.analysis && <div style={{fontSize:13,color:'#d1d5db',lineHeight:1.6}}>{finding.analysis}</div>}
+      {finding.evidence && <div style={{background:'#141414',border:'1px solid #3D382E',borderRadius:2,padding:'10px 14px',marginBottom:8,fontFamily:"'JetBrains Mono',monospace",fontSize:11,color:'#B8A880',whiteSpace:'pre-wrap',wordBreak:'break-all'}}>{finding.evidence}</div>}
+      {finding.analysis && <div style={{fontSize:13,color:'#e5e7eb',lineHeight:1.6}}>{finding.analysis}</div>}
     </div>}
   </div>;
 }
@@ -342,46 +348,45 @@ function ReportCard({report}) {
   const findings = report.findings||[];
   const sevCounts = {};
   findings.forEach(f => { const s=(f.severity||'info').toLowerCase(); sevCounts[s]=(sevCounts[s]||0)+1; });
-  return <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,marginBottom:12,overflow:'hidden',transition:'border-color 0.2s'}}
-    onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.18)'}
-    onMouseLeave={e=>e.currentTarget.style.borderColor='rgba(255,255,255,0.1)'}>
+  return <div style={{background:'#181816',border:'1px solid #3D382E',borderRadius:2,marginBottom:12,overflow:'hidden',transition:'border-color 0.2s'}}
+    onMouseEnter={e=>e.currentTarget.style.borderColor='#D4B56A'}
+    onMouseLeave={e=>e.currentTarget.style.borderColor='#3D382E'}>
     <div onClick={()=>setOpen(!open)} style={{padding:'16px 20px',cursor:'pointer',display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-      <span className="mono" style={{fontSize:14,color:'#f3f4f6',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
-        <span style={{color:open?'#f59e0b':'#6b7280',transition:'transform 0.2s',display:'inline-block',transform:open?'rotate(90deg)':'rotate(0)'}}>&#x25b8;</span>
+      <span className="mono" style={{fontSize:14,color:'#e5e7eb',fontWeight:600,display:'flex',alignItems:'center',gap:6}}>
+        <span style={{color:open?'#D4B56A':'#8A7D65',transition:'transform 0.2s',display:'inline-block',transform:open?'rotate(90deg)':'rotate(0)'}}>&#x25b8;</span>
         {report.id}
       </span>
-      <span style={{fontSize:11,color:'#6b7280'}}>{report.mission}</span>
+      <span style={{fontSize:11,color:'#8A7D65'}}>{report.mission}</span>
       <div style={{display:'flex',gap:4}}>
-        {['critical','high','medium','low'].map(s => sevCounts[s] ? <span key={s} style={{padding:'1px 8px',borderRadius:3,fontSize:10,fontWeight:700,background:(SEV_COLORS[s]||'#6b7280')+'22',color:SEV_COLORS[s],border:'1px solid '+(SEV_COLORS[s]||'#6b7280')+'55'}}>{sevCounts[s]} {s.toUpperCase()}</span> : null)}
+        {['critical','high','medium','low'].map(s => sevCounts[s] ? <span key={s} style={{padding:'1px 8px',borderRadius:2,fontSize:10,fontWeight:700,background:(SEV_COLORS[s]||'#8A7D65')+'22',color:SEV_COLORS[s],border:'1px solid '+(SEV_COLORS[s]||'#8A7D65')+'55'}}>{sevCounts[s]} {s.toUpperCase()}</span> : null)}
       </div>
-      <span style={{fontSize:11,color:'#4b5563',marginLeft:'auto'}}>{report.signed ? '\uD83D\uDD0F signed' : ''}</span>
+      <span style={{fontSize:11,color:'#4ADE80',marginLeft:'auto'}}>{report.signed ? 'signed' : ''}</span>
     </div>
-    {open && <div style={{padding:'0 20px 20px',borderTop:'1px solid rgba(255,255,255,0.06)'}}>
-      {report.summary && <div style={{padding:'12px 14px',marginTop:12,marginBottom:16,borderRadius:6,background:'rgba(245,158,11,0.05)',border:'1px solid rgba(245,158,11,0.15)',fontSize:13,color:'#fbbf24',lineHeight:1.5}}>{report.summary}</div>}
+    {open && <div style={{padding:'0 20px 20px',borderTop:'1px solid #3D382E'}}>
+      {report.summary && <div style={{padding:'12px 14px',marginTop:12,marginBottom:16,borderRadius:2,background:'rgba(212,181,106,0.05)',border:'1px solid rgba(212,181,106,0.15)',fontSize:13,color:'#D4B56A',lineHeight:1.5}}>{report.summary}</div>}
       {findings.map((f,i) => <FindingCard key={i} finding={f} index={i+1}/>)}
-      {report.budget && <div style={{marginTop:12,display:'flex',gap:24,fontSize:12,color:'#6b7280'}}>
-        <span>Tokens: <span className="mono" style={{color:'#9ca3af'}}>{(report.budget.total_tokens||0).toLocaleString()}</span></span>
-        <span>Cost: <span className="mono" style={{color:'#9ca3af'}}>${(report.budget.estimated_cost||0).toFixed(4)}</span></span>
+      {report.budget && <div style={{marginTop:12,display:'flex',gap:24,fontSize:12,color:'#8A7D65'}}>
+        <span>Tokens: <span className="mono" style={{color:'#B8A880'}}>{(report.budget.total_tokens||0).toLocaleString()}</span></span>
+        <span>Cost: <span className="mono" style={{color:'#B8A880'}}>${(report.budget.estimated_cost||0).toFixed(4)}</span></span>
       </div>}
     </div>}
   </div>;
 }
 
 function FindingsTab({reports}) {
-  if (!reports || reports.length === 0) return <div style={{padding:48,textAlign:'center',color:'#4b5563',border:'1px dashed rgba(255,255,255,0.08)',borderRadius:8}}>
-    <div style={{fontSize:32,marginBottom:12}}>&#x1F50D;</div>
-    <div style={{fontSize:14}}>No investigation reports yet. Run <span className="mono" style={{fontSize:12}}>honeymoon scan --repo .</span></div>
+  if (!reports || reports.length === 0) return <div style={{padding:48,textAlign:'center',color:'#8A7D65',border:'1px dashed #3D382E',borderRadius:2}}>
+    <div style={{fontSize:14,marginTop:12}}>No investigation reports yet. Run <span className="mono" style={{fontSize:12}}>honeymoon scan --repo .</span></div>
   </div>;
   const totalFindings = reports.reduce((sum,r) => sum + (r.finding_count||0), 0);
   return <div>
-    <div style={{marginBottom:16,fontSize:13,color:'#6b7280'}}>{reports.length} reports, {totalFindings} total findings</div>
+    <div style={{marginBottom:16,fontSize:13,color:'#8A7D65'}}>{reports.length} reports, {totalFindings} total findings</div>
     {reports.map(r => <ReportCard key={r.id} report={r}/>)}
   </div>;
 }
 
 
 // ---------------------------------------------------------------------------
-// Hardening Tab — Posture Over Time
+// Hardening Tab -- Posture Over Time
 // ---------------------------------------------------------------------------
 
 function PostureChart({entries}) {
@@ -401,87 +406,86 @@ function PostureChart({entries}) {
 
   const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
   const lastScore = points[points.length - 1]?.score || 0;
-  const scoreColor = lastScore >= 70 ? '#10b981' : lastScore >= 40 ? '#eab308' : '#ef4444';
+  const scoreColor = lastScore >= 70 ? '#4ADE80' : lastScore >= 40 ? '#FBBF24' : '#F87171';
 
   return <svg width={w} height={h} style={{display:'block',margin:'0 auto'}}>
     {/* Grid lines */}
     {[0, 25, 50, 75, 100].map(v => {
       const y = padding + chartH - (v / maxScore) * chartH;
       return <g key={v}>
-        <line x1={padding} y1={y} x2={w - padding} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth={1}/>
-        <text x={padding - 4} y={y + 3} textAnchor="end" fill="#4b5563" fontSize={9} fontFamily="JetBrains Mono">{v}</text>
+        <line x1={padding} y1={y} x2={w - padding} y2={y} stroke="#3D382E" strokeWidth={1}/>
+        <text x={padding - 4} y={y + 3} textAnchor="end" fill="#8A7D65" fontSize={9} fontFamily="JetBrains Mono">{v}</text>
       </g>;
     })}
     {/* Line */}
     <path d={pathD} fill="none" stroke={scoreColor} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
     {/* Dots */}
-    {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={3} fill={scoreColor} stroke="#0a0a0b" strokeWidth={1.5}/>)}
+    {points.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={3} fill={scoreColor} stroke="#141414" strokeWidth={1.5}/>)}
     {/* Current score */}
     <text x={w - padding + 6} y={points[points.length - 1]?.y + 4 || 0} fill={scoreColor} fontSize={14} fontWeight={700} fontFamily="JetBrains Mono">{lastScore}</text>
   </svg>;
 }
 
 function HardeningTab({entries}) {
-  if (!entries || entries.length === 0) return <div style={{padding:48,textAlign:'center',color:'#4b5563',border:'1px dashed rgba(255,255,255,0.08)',borderRadius:8}}>
-    <div style={{fontSize:32,marginBottom:12}}>{'\uD83D\uDEE1\uFE0F'}</div>
-    <div style={{fontSize:14}}>No hardening history. Run <span className="mono" style={{fontSize:12}}>honeymoon harden --repo .</span></div>
+  if (!entries || entries.length === 0) return <div style={{padding:48,textAlign:'center',color:'#8A7D65',border:'1px dashed #3D382E',borderRadius:2}}>
+    <div style={{fontSize:14,marginTop:12}}>No hardening history. Run <span className="mono" style={{fontSize:12}}>honeymoon harden --repo .</span></div>
   </div>;
 
   const latest = entries[entries.length - 1];
   const trend = latest.trend || 'stable';
   const trendIcon = {improving:'\u2191 improving',degrading:'\u2193 degrading',stable:'\u2192 stable'}[trend]||trend;
-  const trendColor = {improving:'#10b981',degrading:'#ef4444',stable:'#eab308'}[trend]||'#6b7280';
+  const trendColor = {improving:'#4ADE80',degrading:'#F87171',stable:'#FBBF24'}[trend]||'#8A7D65';
 
   return <div>
     {/* Posture Score */}
-    <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,padding:'24px 28px',marginBottom:20}}>
+    <div style={{background:'#181816',border:'1px solid #3D382E',borderRadius:2,padding:'24px 28px',marginBottom:20}}>
       <div style={{display:'flex',alignItems:'center',gap:24,flexWrap:'wrap'}}>
         <div>
-          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Posture Score</div>
-          <div className="mono" style={{fontSize:48,fontWeight:700,color:latest.posture_score >= 70?'#10b981':latest.posture_score >= 40?'#eab308':'#ef4444'}}>{latest.posture_score}</div>
+          <div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Posture Score</div>
+          <div className="mono" style={{fontSize:48,fontWeight:700,color:latest.posture_score >= 70?'#4ADE80':latest.posture_score >= 40?'#FBBF24':'#F87171'}}>{latest.posture_score}</div>
         </div>
         <div>
-          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Trend</div>
+          <div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Trend</div>
           <div style={{fontSize:16,fontWeight:600,color:trendColor}}>{trendIcon}</div>
         </div>
         <div>
-          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Runs</div>
+          <div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Runs</div>
           <div className="mono" style={{fontSize:16,fontWeight:600,color:'#e5e7eb'}}>{latest.total_runs || entries.length}</div>
         </div>
         <div>
-          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Active Issues</div>
+          <div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Active Issues</div>
           <div className="mono" style={{fontSize:16,fontWeight:600,color:'#e5e7eb'}}>{latest.finding_count}</div>
         </div>
         {latest.new_count > 0 && <div>
-          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>New</div>
-          <div className="mono" style={{fontSize:16,fontWeight:700,color:'#ef4444'}}>{latest.new_count}</div>
+          <div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>New</div>
+          <div className="mono" style={{fontSize:16,fontWeight:700,color:'#F87171'}}>{latest.new_count}</div>
         </div>}
         {latest.resolved_count > 0 && <div>
-          <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Resolved</div>
-          <div className="mono" style={{fontSize:16,fontWeight:700,color:'#10b981'}}>{latest.resolved_count}</div>
+          <div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>Resolved</div>
+          <div className="mono" style={{fontSize:16,fontWeight:700,color:'#4ADE80'}}>{latest.resolved_count}</div>
         </div>}
       </div>
     </div>
 
     {/* Chart */}
-    {entries.length > 1 && <div style={{background:'rgba(255,255,255,0.04)',border:'1px solid rgba(255,255,255,0.1)',borderRadius:8,padding:'16px',marginBottom:20}}>
-      <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Posture Over Time</div>
+    {entries.length > 1 && <div style={{background:'#181816',border:'1px solid #3D382E',borderRadius:2,padding:'16px',marginBottom:20}}>
+      <div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:8}}>Posture Over Time</div>
       <PostureChart entries={entries}/>
     </div>}
 
     {/* Run history */}
-    <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Run History</div>
+    <div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12}}>Run History</div>
     {[...entries].reverse().map((e, i) => {
       const sc = e.posture_score||0;
-      const scColor = sc >= 70?'#10b981':sc >= 40?'#eab308':'#ef4444';
-      return <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 12px',marginBottom:4,background:'rgba(255,255,255,0.02)',borderRadius:6,fontSize:13}}>
-        <span className="mono" style={{color:'#6b7280',minWidth:24}}>#{e.total_runs||entries.length-i}</span>
+      const scColor = sc >= 70?'#4ADE80':sc >= 40?'#FBBF24':'#F87171';
+      return <div key={i} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 12px',marginBottom:4,background:'#181816',borderRadius:2,fontSize:13}}>
+        <span className="mono" style={{color:'#8A7D65',minWidth:24}}>#{e.total_runs||entries.length-i}</span>
         <span className="mono" style={{color:scColor,fontWeight:700,minWidth:30}}>{sc}</span>
-        <span style={{color:'#9ca3af',flex:1}}>{e.finding_count} findings</span>
-        {e.new_count > 0 && <span style={{color:'#ef4444',fontSize:11}}>+{e.new_count} new</span>}
-        {e.resolved_count > 0 && <span style={{color:'#10b981',fontSize:11}}>-{e.resolved_count} resolved</span>}
-        <span className="mono" style={{color:'#4b5563',fontSize:11}}>${(e.cost||0).toFixed(3)}</span>
-        <span style={{color:e.signature?'#6ee7b7':'#4b5563',fontSize:10}}>{e.signature?'\uD83D\uDD0F':''}</span>
+        <span style={{color:'#B8A880',flex:1}}>{e.finding_count} findings</span>
+        {e.new_count > 0 && <span style={{color:'#F87171',fontSize:11}}>+{e.new_count} new</span>}
+        {e.resolved_count > 0 && <span style={{color:'#4ADE80',fontSize:11}}>-{e.resolved_count} resolved</span>}
+        <span className="mono" style={{color:'#8A7D65',fontSize:11}}>${(e.cost||0).toFixed(3)}</span>
+        <span style={{color:e.signature?'#4ADE80':'#8A7D65',fontSize:10}}>{e.signature?'signed':''}</span>
       </div>;
     })}
   </div>;
@@ -534,48 +538,49 @@ function App() {
     onDrop={e => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); }}
     style={{minHeight:'100vh',position:'relative'}}>
 
-    {dragging && <div style={{position:'fixed',inset:0,zIndex:999,background:'rgba(0,0,0,0.85)',display:'flex',alignItems:'center',justifyContent:'center',border:'3px dashed rgba(245,158,11,0.5)'}}>
-      <div style={{fontSize:24,color:'#f59e0b',fontWeight:700}}>&#x1F41D; Drop audit.jsonl</div>
+    {dragging && <div style={{position:'fixed',inset:0,zIndex:999,background:'rgba(20,20,20,0.92)',display:'flex',alignItems:'center',justifyContent:'center',border:'3px dashed rgba(212,181,106,0.5)'}}>
+      <div style={{fontSize:24,color:'#D4B56A',fontWeight:700}}>Drop audit.jsonl</div>
     </div>}
 
     <input ref={fileRef} type="file" accept=".jsonl,.json,.log" style={{display:'none'}} onChange={e => { if (e.target.files[0]) handleFile(e.target.files[0]); }}/>
 
     <div style={{maxWidth:1100,margin:'0 auto',padding:'32px 24px'}}>
       {/* Header */}
-      <div style={{marginBottom:32}}>
-        <div style={{display:'flex',alignItems:'baseline',gap:12,marginBottom:4}}>
-          <h1 className="mono" style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',color:'#f3f4f6'}}>
-            <span style={{fontSize:26,marginRight:2}}>&#x1F36F;</span> HONEYMOON
+      <div style={{marginBottom:32,background:'#181816',padding:'24px 28px',borderRadius:2,border:'1px solid #3D382E'}}>
+        <div style={{display:'flex',alignItems:'center',gap:14,marginBottom:4}}>
+          <span dangerouslySetInnerHTML={{__html: LOGO_SVG}}/>
+          <h1 style={{fontSize:28,fontWeight:700,letterSpacing:'-0.03em',color:'#D4B56A',fontFamily:"'Outfit',sans-serif"}}>
+            HONEYMOON
           </h1>
-          <span style={{fontSize:13,color:'#6b7280',fontWeight:500}}>Attestation Dashboard</span>
+          <span style={{fontSize:13,color:'#8A7D65',fontWeight:500}}>Attestation Dashboard</span>
         </div>
-        <p style={{fontSize:13,color:'#4b5563',maxWidth:500}}>
+        <p style={{fontSize:13,color:'#8A7D65',maxWidth:500}}>
           Zephyr-signed execution provenance. Every agent action, cryptographically attested.
-          {!rawLines && <span style={{color:'#f59e0b'}}> Drop your audit.jsonl or use <span className="mono" style={{fontSize:11}}>serve.py --repo</span> to auto-load.</span>}
+          {!rawLines && <span style={{color:'#D4B56A'}}> Drop your audit.jsonl or use <span className="mono" style={{fontSize:11}}>serve.py --repo</span> to auto-load.</span>}
         </p>
       </div>
 
       {/* Tab Bar */}
       <div style={{display:'flex',gap:2,marginBottom:24}}>
-        {[{id:'attestation',label:'Attestation',icon:'\u26A1'},{id:'findings',label:'Findings',icon:'\uD83D\uDD0D'},{id:'hardening',label:'Hardening',icon:'\uD83D\uDEE1\uFE0F'}].map(t =>
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'10px 20px',borderRadius:6,border:'1px solid '+(tab===t.id?'rgba(245,158,11,0.4)':'rgba(255,255,255,0.08)'),background:tab===t.id?'rgba(245,158,11,0.1)':'rgba(255,255,255,0.02)',color:tab===t.id?'#f59e0b':'#6b7280',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all 0.2s'}}>
-            {t.icon} {t.label} {t.id==='findings' && reports.length > 0 ? <span className="mono" style={{marginLeft:4,fontSize:11}}>({reports.length})</span> : null}
+        {[{id:'attestation',label:'Attestation'},{id:'findings',label:'Findings'},{id:'hardening',label:'Hardening'}].map(t =>
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:'10px 20px',borderRadius:2,border:'1px solid '+(tab===t.id?'rgba(212,181,106,0.4)':'#3D382E'),background:tab===t.id?'rgba(212,181,106,0.1)':'#181816',color:tab===t.id?'#D4B56A':'#8A7D65',fontSize:13,fontWeight:600,cursor:'pointer',transition:'all 0.2s',fontFamily:"'Outfit',sans-serif"}}>
+            {t.label} {t.id==='findings' && reports.length > 0 ? <span className="mono" style={{marginLeft:4,fontSize:11}}>({reports.length})</span> : null}
           </button>
         )}
       </div>
 
       {tab === 'attestation' && <>
       {/* Stats Bar */}
-      <div style={{display:'flex',gap:1,marginBottom:24,borderRadius:6,overflow:'hidden',border:'1px solid rgba(255,255,255,0.06)'}}>
+      <div style={{display:'flex',gap:1,marginBottom:24,borderRadius:2,overflow:'hidden',border:'1px solid #3D382E'}}>
         {[
-          {label:'Runs', value:totalRuns, color:'#f59e0b'},
-          {label:'Events', value:totalEvents, color:'#3b82f6'},
-          {label:'Signed', value:signedCount, color:'#10b981'},
-          {label:'Signers', value:signers.length, color:'#8b5cf6'},
-          {label:'Source', value:rawLines ? 'audit.jsonl' : 'no data', color:'#6b7280'},
+          {label:'Runs', value:totalRuns, color:'#D4B56A'},
+          {label:'Events', value:totalEvents, color:'#D4B56A'},
+          {label:'Signed', value:signedCount, color:'#4ADE80'},
+          {label:'Signers', value:signers.length, color:'#D4B56A'},
+          {label:'Source', value:rawLines ? 'audit.jsonl' : 'no data', color:'#8A7D65'},
         ].map(({label, value, color}) =>
-          <div key={label} style={{flex:1,padding:'14px 16px',background:'rgba(255,255,255,0.02)'}}>
-            <div style={{fontSize:10,color:'#6b7280',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
+          <div key={label} style={{flex:1,padding:'14px 16px',background:'#181816'}}>
+            <div style={{fontSize:10,color:'#8A7D65',textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:4}}>{label}</div>
             <div className="mono" style={{fontSize:18,fontWeight:700,color}}>{value}</div>
           </div>
         )}
@@ -583,17 +588,16 @@ function App() {
 
       {/* Filter */}
       <div style={{marginBottom:20}}>
-        <input type="text" placeholder="Filter by task ID, objective, or status\u2026" value={filter} onChange={e => setFilter(e.target.value)}
-          style={{width:'100%',padding:'10px 14px',background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.08)',borderRadius:6,color:'#e5e7eb',fontSize:13,fontFamily:"'DM Sans',sans-serif",outline:'none'}}
-          onFocus={e => e.target.style.borderColor = 'rgba(245,158,11,0.4)'}
-          onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}/>
+        <input type="text" placeholder="Filter by task ID, objective, or status..." value={filter} onChange={e => setFilter(e.target.value)}
+          style={{width:'100%',padding:'10px 14px',background:'#181816',border:'1px solid #3D382E',borderRadius:2,color:'#e5e7eb',fontSize:13,fontFamily:"'Outfit',sans-serif",outline:'none'}}
+          onFocus={e => e.target.style.borderColor = 'rgba(212,181,106,0.4)'}
+          onBlur={e => e.target.style.borderColor = '#3D382E'}/>
       </div>
 
       {/* Runs */}
       {filteredRuns.length === 0 ?
-        <div style={{padding:48,textAlign:'center',color:'#4b5563',border:'1px dashed rgba(255,255,255,0.08)',borderRadius:8}}>
-          <div style={{fontSize:32,marginBottom:12}}>{rawLines ? '\uD83D\uDCED' : '\uD83D\uDC1D'}</div>
-          <div style={{fontSize:14}}>{rawLines ? 'No matching runs' : 'Drop audit.jsonl to view the hive\'s attestation trail'}</div>
+        <div style={{padding:48,textAlign:'center',color:'#8A7D65',border:'1px dashed #3D382E',borderRadius:2}}>
+          <div style={{fontSize:14}}>{rawLines ? 'No matching runs' : 'Drop audit.jsonl to view the attestation trail'}</div>
         </div>
       : filteredRuns.map(run => <RunCard key={run.id} run={run}/>)}
       </>}
@@ -603,9 +607,9 @@ function App() {
       {tab === 'hardening' && <HardeningTab entries={ledger}/>}
 
       {/* Footer */}
-      <div style={{marginTop:40,paddingTop:20,borderTop:'1px solid rgba(255,255,255,0.04)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <span style={{fontSize:11,color:'#374151'}}>HONEYMOON Attestation Dashboard · Zephyr SBOF</span>
-        <span style={{fontSize:11,color:'#374151'}}>Adjective LLC</span>
+      <div style={{marginTop:40,paddingTop:20,borderTop:'1px solid #3D382E',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <span style={{fontSize:11,color:'#8A7D65'}}>HONEYMOON Attestation Dashboard &middot; Zephyr SBOF</span>
+        <span style={{fontSize:11,color:'#8A7D65'}}>Adjective LLC</span>
       </div>
     </div>
   </div>;

@@ -17,16 +17,16 @@ import type { DaemonState, LedgerEntry, Finding, Report, TrustData, Verification
 // Severity + Agent config
 // ---------------------------------------------------------------------------
 const SEV = {
-  critical: { color: "#ef4444", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", icon: XCircle, tooltip: "Immediately exploitable. Direct path to code execution, data breach, or system compromise." },
-  high:     { color: "#f97316", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.3)", icon: AlertTriangle, tooltip: "Exploitable with moderate effort. Should be fixed before next release." },
-  medium:   { color: "#eab308", bg: "rgba(234,179,8,0.12)",  border: "rgba(234,179,8,0.3)",  icon: AlertTriangle, tooltip: "Requires specific conditions to exploit. Schedule for next sprint." },
-  low:      { color: "#3b82f6", bg: "rgba(59,130,246,0.12)", border: "rgba(59,130,246,0.3)", icon: Shield, tooltip: "Minimal risk. Fix when convenient." },
-  info:     { color: "#6b7280", bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.1)", icon: FileSearch, tooltip: "Informational finding. No immediate action required." },
+  critical: { color: "#ef4444", bg: "rgba(239,68,68,0.14)", border: "rgba(239,68,68,0.35)", icon: XCircle, tooltip: "Immediately exploitable. Direct path to code execution, data breach, or system compromise." },
+  high:     { color: "#f97316", bg: "rgba(249,115,22,0.14)", border: "rgba(249,115,22,0.35)", icon: AlertTriangle, tooltip: "Exploitable with moderate effort. Should be fixed before next release." },
+  medium:   { color: "#eab308", bg: "rgba(234,179,8,0.14)",  border: "rgba(234,179,8,0.35)",  icon: AlertTriangle, tooltip: "Requires specific conditions to exploit. Schedule for next sprint." },
+  low:      { color: "#3b82f6", bg: "rgba(59,130,246,0.14)", border: "rgba(59,130,246,0.35)", icon: Shield, tooltip: "Minimal risk. Fix when convenient." },
+  info:     { color: "#6b7280", bg: "rgba(107,114,128,0.10)", border: "rgba(107,114,128,0.25)", icon: FileSearch, tooltip: "Informational finding. No immediate action required." },
 };
 
 const AGENTS = [
-  { role: "planner",     label: "Queen",     color: "#f59e0b" },
-  { role: "implementer", label: "Builder",   color: "#eab308" },
+  { role: "planner",     label: "Queen",     color: "#D4B56A" },
+  { role: "implementer", label: "Builder",   color: "#D4B56A" },
   { role: "debugger",    label: "Nurse",     color: "#ef4444" },
   { role: "security",    label: "Guard",     color: "#10b981" },
   { role: "testgen",     label: "Inspector", color: "#14b8a6" },
@@ -39,13 +39,13 @@ const AGENTS = [
 // ---------------------------------------------------------------------------
 function PostureGauge({ score, trend }: { score: number | null; trend: string | null }) {
   if (score === null) return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/[0.06] bg-white/[0.02]">
-      <Shield className="w-5 h-5 text-zinc-600" />
-      <span className="text-sm text-zinc-500">No posture data</span>
+    <div className="flex items-center gap-3 px-4 py-3 rounded-sm border border-[#3D382E] bg-[#181816]">
+      <Shield className="w-5 h-5 text-[#8A7D65]" />
+      <span className="text-sm text-[#8A7D65]">No posture data</span>
     </div>
   );
 
-  const color = score >= 70 ? "#10b981" : score >= 40 ? "#eab308" : "#ef4444";
+  const color = score >= 70 ? "#4ADE80" : score >= 40 ? "#FBBF24" : "#F87171";
   const TrendIcon = trend === "improving" ? TrendingUp : trend === "degrading" ? TrendingDown : Minus;
   const circumference = 2 * Math.PI * 40;
   const offset = circumference - (score / 100) * circumference;
@@ -54,7 +54,7 @@ function PostureGauge({ score, trend }: { score: number | null; trend: string | 
     <div className="flex items-center gap-4" title="Security posture score (0-100). Higher is better. Computed from active findings: critical=-25, high=-15, medium=-5 per finding.">
       <div className="relative w-20 h-20">
         <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-          <circle cx={50} cy={50} r={40} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={5} />
+          <circle cx={50} cy={50} r={40} fill="none" stroke="#3D382E" strokeWidth={5} />
           <motion.circle
             cx={50} cy={50} r={40} fill="none" stroke={color} strokeWidth={5} strokeLinecap="round"
             strokeDasharray={circumference}
@@ -68,7 +68,7 @@ function PostureGauge({ score, trend }: { score: number | null; trend: string | 
         </div>
       </div>
       <div>
-        <div className="text-[10px] text-zinc-500 uppercase tracking-widest">Posture</div>
+        <div className="text-[10px] text-[#8A7D65] uppercase tracking-widest">Posture</div>
         <div className="flex items-center gap-1 mt-0.5">
           <TrendIcon className="w-3.5 h-3.5" style={{ color }} />
           <span className="text-xs font-medium" style={{ color }}>{trend || "unknown"}</span>
@@ -92,17 +92,17 @@ function HiveCell({ label, color, active }: { label: string; color: string; acti
       <svg viewBox="0 0 100 115" width={80} height={90}>
         <polygon
           points="50,2 95,28 95,80 50,106 5,80 5,28"
-          fill={active ? `${color}20` : "rgba(255,255,255,0.015)"}
-          stroke={active ? color : "rgba(255,255,255,0.07)"}
+          fill={active ? `${color}20` : "rgba(212,181,106,0.03)"}
+          stroke={active ? color : "#3D382E"}
           strokeWidth={active ? 2.5 : 1}
           style={{ transition: "all 0.4s ease" }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <Hexagon className="w-4 h-4" style={{ color: active ? color : "#4b5563" }} />
+        <Hexagon className="w-4 h-4" style={{ color: active ? color : "#8A7D65" }} />
         <span
           className="text-[9px] font-bold uppercase tracking-widest"
-          style={{ color: active ? color : "#4b5563" }}
+          style={{ color: active ? color : "#8A7D65" }}
         >
           {label}
         </span>
@@ -140,17 +140,17 @@ function EventStream({ events }: { events: StreamEvent[] }) {
   }, [events.length]);
 
   const getIcon = (ev: StreamEvent) => {
-    if (ev.type === "agent_call") return <Zap className="w-3 h-3 text-amber-500" />;
+    if (ev.type === "agent_call") return <Zap className="w-3 h-3 text-[#D4B56A]" />;
     if (ev.type === "tool_call") return <Play className="w-3 h-3 text-blue-400" />;
     if (ev.type === "pipeline_event") return <Activity className="w-3 h-3 text-purple-400" />;
-    if (ev.type === "plan_ready") return <CheckCircle2 className="w-3 h-3 text-green-400" />;
-    if (ev.type === "complete") return <CheckCircle2 className="w-3 h-3 text-emerald-400" />;
-    if (ev.type === "ledger_update") return <Shield className="w-3 h-3 text-amber-400" />;
-    if (ev.type === "command_started") return <Loader2 className="w-3 h-3 text-amber-500 animate-spin" />;
+    if (ev.type === "plan_ready") return <CheckCircle2 className="w-3 h-3 text-[#4ADE80]" />;
+    if (ev.type === "complete") return <CheckCircle2 className="w-3 h-3 text-[#4ADE80]" />;
+    if (ev.type === "ledger_update") return <Shield className="w-3 h-3 text-[#D4B56A]" />;
+    if (ev.type === "command_started") return <Loader2 className="w-3 h-3 text-[#D4B56A] animate-spin" />;
     if (ev.type === "command_completed") return ev.returncode === 0
-      ? <CheckCircle2 className="w-3 h-3 text-green-500" />
-      : <XCircle className="w-3 h-3 text-red-500" />;
-    return <ChevronRight className="w-3 h-3 text-zinc-600" />;
+      ? <CheckCircle2 className="w-3 h-3 text-[#4ADE80]" />
+      : <XCircle className="w-3 h-3 text-[#F87171]" />;
+    return <ChevronRight className="w-3 h-3 text-[#8A7D65]" />;
   };
 
   const getLabel = (ev: StreamEvent) => {
@@ -177,10 +177,10 @@ function EventStream({ events }: { events: StreamEvent[] }) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15 }}
-            className="flex items-start gap-2 py-1.5 px-2 rounded hover:bg-white/[0.02] group"
+            className="flex items-start gap-2 py-1.5 px-2 rounded-sm hover:bg-[#2A2720] group bg-[#181816] border border-transparent hover:border-[#3D382E]"
           >
             <span className="mt-0.5 flex-shrink-0">{getIcon(ev)}</span>
-            <span className="text-[11px] text-zinc-400 leading-relaxed font-mono truncate">
+            <span className="text-[11px] text-[#B8A880] leading-relaxed font-mono truncate">
               {getLabel(ev)}
             </span>
           </motion.div>
@@ -300,11 +300,11 @@ function LaneColumn({ lane, accent }: { lane: LaneInfo; accent: typeof LANE_ACCE
     ? "#10b981"
     : lane.status === "failed"
     ? "#ef4444"
-    : "#f59e0b";
+    : "#D4B56A";
 
   return (
-    <div className="flex flex-col min-h-0 rounded-lg overflow-hidden"
-      style={{ background: "rgba(255,255,255,0.01)", border: `1px solid rgba(255,255,255,0.06)` }}
+    <div className="flex flex-col min-h-0 rounded-sm overflow-hidden"
+      style={{ background: "#181816", border: `1px solid #3D382E` }}
     >
       {/* Accent top border */}
       <div className="h-0.5" style={{ background: accent.color }} />
@@ -345,10 +345,10 @@ function LaneColumn({ lane, accent }: { lane: LaneInfo; accent: typeof LANE_ACCE
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.12 }}
-                className="flex items-start gap-1.5 py-1 px-1 rounded hover:bg-white/[0.02] group"
+                className="flex items-start gap-1.5 py-1 px-1 rounded-sm hover:bg-[#2A2720] group"
               >
-                <ChevronRight className="w-2.5 h-2.5 mt-0.5 flex-shrink-0 text-zinc-700" />
-                <span className="text-[10px] text-zinc-500 leading-relaxed font-mono truncate">
+                <ChevronRight className="w-2.5 h-2.5 mt-0.5 flex-shrink-0 text-[#8A7D65]" />
+                <span className="text-[10px] text-[#B8A880] leading-relaxed font-mono truncate">
                   {cleaned || line}
                 </span>
               </motion.div>
@@ -378,8 +378,8 @@ function ParallelLaneView({ events }: { events: StreamEvent[] }) {
     <div className="flex flex-col gap-3">
       {/* Shared / pre-lane events */}
       {shared.length > 0 && (
-        <div className="rounded-lg border border-white/[0.06] bg-white/[0.015] p-2">
-          <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1.5 flex items-center gap-1.5 px-1">
+        <div className="rounded-sm border border-[#3D382E] bg-[#181816] p-2">
+          <div className="text-[9px] text-[#8A7D65] uppercase tracking-widest mb-1.5 flex items-center gap-1.5 px-1">
             <Activity className="w-3 h-3" /> Shared
           </div>
           <div className="flex flex-col gap-px max-h-[120px] overflow-y-auto custom-scrollbar">
@@ -388,8 +388,8 @@ function ParallelLaneView({ events }: { events: StreamEvent[] }) {
               const cleaned = line.replace(/^\d{2}:\d{2}:\d{2}\s*\|\s*\w+\s*\|\s*/, "");
               return (
                 <div key={i} className="flex items-start gap-1.5 py-1 px-1">
-                  <ChevronRight className="w-2.5 h-2.5 mt-0.5 flex-shrink-0 text-zinc-700" />
-                  <span className="text-[10px] text-zinc-500 leading-relaxed font-mono truncate">{cleaned}</span>
+                  <ChevronRight className="w-2.5 h-2.5 mt-0.5 flex-shrink-0 text-[#8A7D65]" />
+                  <span className="text-[10px] text-[#B8A880] leading-relaxed font-mono truncate">{cleaned}</span>
                 </div>
               );
             })}
@@ -399,8 +399,8 @@ function ParallelLaneView({ events }: { events: StreamEvent[] }) {
 
       {/* Parallel lane indicator */}
       <div className="flex items-center gap-2 px-1">
-        <Columns className="w-3.5 h-3.5 text-amber-500" />
-        <span className="text-[10px] text-amber-500 uppercase tracking-widest font-medium">
+        <Columns className="w-3.5 h-3.5 text-[#D4B56A]" />
+        <span className="text-[10px] text-[#D4B56A] uppercase tracking-widest font-medium">
           Parallel Investigation — {laneCount} lane{laneCount !== 1 ? "s" : ""}
         </span>
       </div>
@@ -443,21 +443,21 @@ function CommandBar({ onCommand, running }: { onCommand: (cmd: string) => void; 
             whileHover={running ? {} : { y: -2 }}
             whileTap={running ? {} : { scale: 0.98 }}
             title={cmd.tooltip}
-            className="relative px-4 py-3 rounded-xl text-left disabled:opacity-40 transition-all overflow-hidden cursor-pointer disabled:cursor-not-allowed"
+            className="relative px-4 py-3 rounded-sm text-left disabled:opacity-40 transition-all overflow-hidden cursor-pointer disabled:cursor-not-allowed"
             style={{
-              background: isRunning ? "rgba(245,158,11,0.08)" : "rgba(255,255,255,0.02)",
-              border: `1px solid ${isRunning ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.06)"}`,
+              background: isRunning ? "rgba(212,181,106,0.08)" : "#181816",
+              border: `1px solid ${isRunning ? "rgba(212,181,106,0.3)" : "#3D382E"}`,
             }}
           >
             <div className="flex items-center gap-2 mb-1">
               {isRunning ? (
-                <Loader2 className="w-4 h-4 text-amber-500 animate-spin" />
+                <Loader2 className="w-4 h-4 text-[#D4B56A] animate-spin" />
               ) : (
-                <Icon className="w-4 h-4 text-zinc-400" />
+                <Icon className="w-4 h-4 text-[#B8A880]" />
               )}
-              <span className="text-sm font-semibold text-zinc-200">{cmd.label}</span>
+              <span className="text-sm font-semibold text-[#e5e7eb]">{cmd.label}</span>
             </div>
-            <span className="text-[10px] text-zinc-500">{isRunning ? "Running..." : cmd.desc}</span>
+            <span className="text-[10px] text-[#8A7D65]">{isRunning ? "Running..." : cmd.desc}</span>
           </motion.button>
         );
       })}
@@ -492,7 +492,7 @@ function FindingPill({ finding }: { finding: Finding }) {
 
   return (
     <div
-      className="rounded-lg text-xs cursor-pointer transition-all"
+      className="rounded-sm text-xs cursor-pointer transition-all"
       style={{ background: sev.bg, border: `1px solid ${sev.border}` }}
       onClick={() => setOpen(!open)}
     >
@@ -516,16 +516,16 @@ function FindingPill({ finding }: { finding: Finding }) {
           >
             <div className="px-3 pb-2 space-y-1.5">
               {finding.evidence && (
-                <pre className="text-[10px] font-mono text-zinc-500 bg-black/30 rounded p-2 whitespace-pre-wrap break-all leading-relaxed">
+                <pre className="text-[10px] font-mono text-[#B8A880] bg-[#141414] rounded-sm p-2 whitespace-pre-wrap break-all leading-relaxed border border-[#3D382E]">
                   {finding.evidence}
                 </pre>
               )}
               {finding.analysis && (
-                <p className="text-[11px] text-zinc-400 leading-relaxed">{finding.analysis}</p>
+                <p className="text-[11px] text-[#B8A880] leading-relaxed">{finding.analysis}</p>
               )}
               <button
                 onClick={handleFix}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[10px] font-medium transition-colors bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-[10px] font-medium transition-colors bg-[#D4B56A]/10 border border-[#D4B56A]/20 text-[#D4B56A] hover:bg-[#D4B56A]/20 cursor-pointer"
                 title="Create a scoped task YAML file for fixing this finding. Run 'honeymoon batch' to execute."
               >
                 <Wrench className="w-3 h-3" />
@@ -557,9 +557,9 @@ function FindingPill({ finding }: { finding: Finding }) {
 function Stat({ label, value, sub, tooltip }: { label: string; value: string | number; sub?: string; tooltip?: string }) {
   return (
     <div className="px-4 py-3" title={tooltip}>
-      <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1">{label}</div>
-      <div className="font-mono text-lg font-bold text-zinc-200">{value}</div>
-      {sub && <div className="text-[10px] text-zinc-500 mt-0.5">{sub}</div>}
+      <div className="text-[9px] text-[#8A7D65] uppercase tracking-widest mb-1">{label}</div>
+      <div className="font-mono text-lg font-bold text-[#e5e7eb]">{value}</div>
+      {sub && <div className="text-[10px] text-[#8A7D65] mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -571,13 +571,13 @@ const MISSION_COLORS: Record<string, { color: string; bg: string; border: string
   investigate: { color: "#3b82f6", bg: "rgba(59,130,246,0.12)", border: "rgba(59,130,246,0.3)" },
   bulk:        { color: "#a855f7", bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.3)" },
   monitor:     { color: "#10b981", bg: "rgba(16,185,129,0.12)", border: "rgba(16,185,129,0.3)" },
-  scan:        { color: "#eab308", bg: "rgba(234,179,8,0.12)",  border: "rgba(234,179,8,0.3)"  },
+  scan:        { color: "#D4B56A", bg: "rgba(212,181,106,0.12)",  border: "rgba(212,181,106,0.3)"  },
   simulate:    { color: "#ef4444", bg: "rgba(239,68,68,0.12)",  border: "rgba(239,68,68,0.3)"  },
   harden:      { color: "#06b6d4", bg: "rgba(6,182,212,0.12)",  border: "rgba(6,182,212,0.3)"  },
   deep:        { color: "#f97316", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.3)" },
 };
 
-const DEFAULT_MISSION_STYLE = { color: "#6b7280", bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.1)" };
+const DEFAULT_MISSION_STYLE = { color: "#8A7D65", bg: "rgba(138,125,101,0.10)", border: "rgba(138,125,101,0.25)" };
 
 // ---------------------------------------------------------------------------
 // Report card
@@ -603,11 +603,11 @@ function ReportCard({ report, onVerify, verifying, verification }: {
   return (
     <motion.div
       layout
-      className="rounded-lg text-xs cursor-pointer transition-all"
-      style={{ background: "rgba(255,255,255,0.02)", border: `1px solid rgba(255,255,255,0.06)` }}
+      className="rounded-sm text-xs cursor-pointer transition-all"
+      style={{ background: "#181816", border: `1px solid #3D382E` }}
     >
       <div
-        className="flex items-center gap-2 px-3 py-2.5 hover:bg-white/[0.02] rounded-lg transition-colors"
+        className="flex items-center gap-2 px-3 py-2.5 hover:bg-[#2A2720] rounded-sm transition-colors"
         onClick={() => setOpen(!open)}
       >
         {/* Mission badge */}
@@ -619,20 +619,20 @@ function ReportCard({ report, onVerify, verifying, verification }: {
         </span>
 
         {/* Timestamp */}
-        <span className="flex items-center gap-1 text-zinc-500 flex-shrink-0">
+        <span className="flex items-center gap-1 text-[#8A7D65] flex-shrink-0 font-mono">
           <Clock className="w-3 h-3" />
           {timeStr}
         </span>
 
         {/* Finding count */}
-        <span className="flex items-center gap-1 text-zinc-400 flex-shrink-0">
+        <span className="flex items-center gap-1 text-[#B8A880] flex-shrink-0">
           <AlertTriangle className="w-3 h-3" />
           {report.finding_count}
         </span>
 
         {/* Cost */}
         {cost && (
-          <span className="flex items-center gap-1 text-zinc-500 flex-shrink-0">
+          <span className="flex items-center gap-1 text-[#8A7D65] flex-shrink-0 font-mono">
             <DollarSign className="w-3 h-3" />
             {cost}
           </span>
@@ -667,13 +667,13 @@ function ReportCard({ report, onVerify, verifying, verification }: {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
                 disabled={verifying}
-                className="p-0.5 rounded hover:bg-white/[0.06] transition-colors cursor-pointer flex-shrink-0 disabled:opacity-40"
+                className="p-0.5 rounded-sm hover:bg-[#2A2720] transition-colors cursor-pointer flex-shrink-0 disabled:opacity-40"
                 title="Verify this report's cryptographic signature against the signing key"
               >
                 {verifying ? (
-                  <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 text-[#D4B56A] animate-spin" />
                 ) : (
-                  <ShieldCheck className="w-3.5 h-3.5 text-zinc-500 hover:text-emerald-400 transition-colors" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#8A7D65] hover:text-emerald-400 transition-colors" />
                 )}
               </motion.button>
             )}
@@ -683,7 +683,7 @@ function ReportCard({ report, onVerify, verifying, verification }: {
           <span title="Signed"><FileCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" /></span>
         )}
         <ChevronRight
-          className="w-3 h-3 text-zinc-600 transition-transform flex-shrink-0"
+          className="w-3 h-3 text-[#8A7D65] transition-transform flex-shrink-0"
           style={{ transform: open ? "rotate(90deg)" : "rotate(0)" }}
         />
       </div>
@@ -699,7 +699,7 @@ function ReportCard({ report, onVerify, verifying, verification }: {
             <div className="px-3 pb-3 space-y-3">
               {/* Objective */}
               {report.objective && (
-                <p className="text-[11px] text-zinc-400 leading-relaxed italic border-l-2 pl-2"
+                <p className="text-[11px] text-[#B8A880] leading-relaxed italic border-l-2 pl-2"
                    style={{ borderColor: style.color }}>
                   {report.objective}
                 </p>
@@ -707,7 +707,7 @@ function ReportCard({ report, onVerify, verifying, verification }: {
 
               {/* Summary */}
               {report.summary && (
-                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                <p className="text-[11px] text-[#B8A880] leading-relaxed">
                   {report.summary}
                 </p>
               )}
@@ -715,7 +715,7 @@ function ReportCard({ report, onVerify, verifying, verification }: {
               {/* Findings */}
               {report.findings && report.findings.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="text-[9px] text-zinc-500 uppercase tracking-widest">
+                  <div className="text-[9px] text-[#8A7D65] uppercase tracking-widest">
                     Findings ({report.findings.length})
                   </div>
                   {report.findings.map((f, i) => (
@@ -755,10 +755,10 @@ function ReportsPanel({ reports, onVerify, verifying, verificationResults }: {
 }) {
   if (reports.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[500px] text-zinc-600">
-        <ClipboardList className="w-12 h-12 text-zinc-800 mb-4" />
-        <p className="text-sm font-medium text-zinc-500">No reports yet</p>
-        <p className="text-xs text-zinc-600 mt-1">Run a scan to generate reports</p>
+      <div className="flex flex-col items-center justify-center h-[500px] text-[#8A7D65]">
+        <ClipboardList className="w-12 h-12 text-[#3D382E] mb-4" />
+        <p className="text-sm font-medium text-[#B8A880]">No reports yet</p>
+        <p className="text-xs text-[#8A7D65] mt-1">Run a scan to generate reports</p>
       </div>
     );
   }
@@ -786,7 +786,7 @@ function LedgerChart({ entries }: { entries: LedgerEntry[] }) {
   return (
     <div className="flex items-end gap-0.5 h-12">
       {entries.slice(-30).map((e, i) => {
-        const color = e.posture_score >= 70 ? "#10b981" : e.posture_score >= 40 ? "#eab308" : "#ef4444";
+        const color = e.posture_score >= 70 ? "#4ADE80" : e.posture_score >= 40 ? "#FBBF24" : "#F87171";
         return (
           <motion.div
             key={i}
@@ -794,7 +794,7 @@ function LedgerChart({ entries }: { entries: LedgerEntry[] }) {
             animate={{ height: `${Math.max(e.posture_score, 4)}%` }}
             transition={{ duration: 0.4, delay: i * 0.03 }}
             className="flex-1 rounded-t min-w-[3px]"
-            style={{ background: color, opacity: 0.6 }}
+            style={{ background: color, opacity: 0.7 }}
             title={`#${e.total_runs}: ${e.posture_score}/100`}
           />
         );
@@ -822,21 +822,21 @@ function TrustPanel({ trust }: { trust: TrustData | null }) {
   const allVerified = trust.unsigned_events === 0 && trust.signed_events > 0;
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-      <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+    <div className="rounded-sm border border-[#3D382E] bg-[#181816] p-4">
+      <div className="text-[11px] text-[#8A7D65] uppercase tracking-widest font-semibold mb-3 flex items-center gap-1.5 pb-2 border-b border-[#3D382E]">
         <ShieldCheck className="w-3 h-3" /> Cryptographic Trust
       </div>
 
       {!trust.signing_available ? (
-        <div className="text-xs text-zinc-600 text-center py-4">
-          Signing not available — run <code className="text-zinc-500">honeymoon init</code>
+        <div className="text-xs text-[#8A7D65] text-center py-4">
+          Signing not available — run <code className="text-[#B8A880]">honeymoon init</code>
         </div>
       ) : (
         <div className="space-y-3">
           {/* Key Identity Card */}
           <div
-            className="rounded-lg p-3 space-y-2"
-            style={{ background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)" }}
+            className="rounded-sm p-3 space-y-2"
+            style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.20)" }}
           >
             <div className="flex items-center gap-2">
               <span title="Your Ed25519 public key identity. Share this with anyone who needs to verify your reports."><Fingerprint className="w-4 h-4 text-emerald-500 flex-shrink-0" /></span>
@@ -846,13 +846,13 @@ function TrustPanel({ trust }: { trust: TrustData | null }) {
               <motion.button
                 onClick={copyKey}
                 whileTap={{ scale: 0.9 }}
-                className="p-1 rounded hover:bg-white/[0.06] transition-colors cursor-pointer"
+                className="p-1 rounded-sm hover:bg-[#2A2720] transition-colors cursor-pointer"
                 title="Copy full public key"
               >
                 {copied ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#4ADE80]" />
                 ) : (
-                  <Copy className="w-3.5 h-3.5 text-zinc-500" />
+                  <Copy className="w-3.5 h-3.5 text-[#8A7D65]" />
                 )}
               </motion.button>
             </div>
@@ -876,26 +876,26 @@ function TrustPanel({ trust }: { trust: TrustData | null }) {
               )}
             </div>
             {trust.key_path && (
-              <div className="text-[10px] text-zinc-600 font-mono truncate">{trust.key_path}</div>
+              <div className="text-[10px] text-[#8A7D65] font-mono truncate">{trust.key_path}</div>
             )}
           </div>
 
           {/* Trust Stats */}
           <div className="grid grid-cols-3 gap-1.5">
-            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }} title="Pipeline events (agent actions, tool calls, verdicts) signed with your key">
+            <div className="rounded-sm p-2 text-center" style={{ background: "#181816", border: "1px solid #3D382E" }} title="Pipeline events (agent actions, tool calls, verdicts) signed with your key">
               <div className="flex items-center justify-center gap-1 mb-0.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span className="text-[9px] text-zinc-500 uppercase tracking-widest">Events</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]" />
+                <span className="text-[9px] text-[#8A7D65] uppercase tracking-widest">Events</span>
               </div>
-              <span className="font-mono text-sm font-bold text-zinc-200">{trust.signed_events}</span>
+              <span className="font-mono text-sm font-bold text-[#e5e7eb]">{trust.signed_events}</span>
             </div>
-            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }} title="Investigation reports with Ed25519 attestation">
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-0.5">Reports</div>
-              <span className="font-mono text-sm font-bold text-zinc-200">{trust.signed_reports}</span>
+            <div className="rounded-sm p-2 text-center" style={{ background: "#181816", border: "1px solid #3D382E" }} title="Investigation reports with Ed25519 attestation">
+              <div className="text-[9px] text-[#8A7D65] uppercase tracking-widest mb-0.5">Reports</div>
+              <span className="font-mono text-sm font-bold text-[#e5e7eb]">{trust.signed_reports}</span>
             </div>
-            <div className="rounded-lg p-2 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }} title="Whether all events in the audit log have valid signatures">
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-0.5">Status</div>
-              <span className={`text-[10px] font-bold ${allVerified ? "text-emerald-400" : "text-amber-400"}`}>
+            <div className="rounded-sm p-2 text-center" style={{ background: "#181816", border: "1px solid #3D382E" }} title="Whether all events in the audit log have valid signatures">
+              <div className="text-[9px] text-[#8A7D65] uppercase tracking-widest mb-0.5">Status</div>
+              <span className={`text-[10px] font-bold ${allVerified ? "text-[#4ADE80]" : "text-[#D4B56A]"}`}>
                 {allVerified ? "All verified" : `${trust.unsigned_events} unverified`}
               </span>
             </div>
@@ -1042,18 +1042,20 @@ export default function Home() {
         {/* Header */}
         <header className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-              <Hexagon className="w-5 h-5 text-amber-500" />
+            <div className="w-9 h-9 rounded-sm bg-[#D4B56A]/10 border border-[#D4B56A]/20 flex items-center justify-center">
+              <svg viewBox="0 0 698 145" className="w-6 h-6" fill="#D4B56A">
+                <path d="M88.4404 124.876C97.4948 124.876 104.904 124.966 104.914 125.075C104.914 125.45 88.7612 145.016 88.4648 145C88.3678 144.991 86.6194 142.965 84.5801 140.499C77.1686 131.536 71.9678 125.15 71.9678 125.015C71.9709 124.939 79.3821 124.876 88.4404 124.876ZM88.5938 102.6C104.595 102.6 117.691 102.666 117.727 102.748C117.727 102.83 117.301 104.238 116.782 105.876C115.795 108.99 113.491 113.728 111.515 116.707L110.354 118.456L89.2539 118.538C77.6496 118.583 67.8023 118.574 67.3701 118.518C66.7646 118.438 66.2302 117.848 65.0225 115.924C62.3492 111.665 59.46 105.031 59.46 103.152C59.46 102.622 60.6685 102.6 88.5938 102.6Z" />
+              </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-zinc-100">HONEYMOON</h1>
+              <h1 className="text-xl font-bold tracking-tight text-[#D4B56A]">HONEYMOON</h1>
               <div className="flex items-center gap-2 text-[11px]">
-                <span className="text-zinc-500">{state?.repo_name || "—"}</span>
+                <span className="text-[#8A7D65]">{state?.repo_name || "—"}</span>
                 <span className="flex items-center gap-1" title={connected ? "Connected to the Honeymoon daemon via WebSocket" : "Not connected. Start the daemon: honeymoon serve --repo ."}>
                   {connected ? (
-                    <><Wifi className="w-3 h-3 text-emerald-500" /><span className="text-emerald-500">Live</span></>
+                    <><Wifi className="w-3 h-3 text-[#4ADE80]" /><span className="text-[#4ADE80]">Live</span></>
                   ) : (
-                    <><WifiOff className="w-3 h-3 text-red-500" /><span className="text-red-500">Disconnected</span></>
+                    <><WifiOff className="w-3 h-3 text-[#F87171]" /><span className="text-[#F87171]">Disconnected</span></>
                   )}
                 </span>
               </div>
@@ -1062,16 +1064,16 @@ export default function Home() {
 
           <div className="flex items-center gap-6">
             <PostureGauge score={state?.posture ?? null} trend={state?.trend ?? null} />
-            <div className="flex gap-px rounded-lg border border-white/[0.06] overflow-hidden">
+            <div className="flex gap-px rounded-sm border border-[#3D382E] overflow-hidden bg-[#181816]">
               <Stat label="Runs" value={state?.hardening_runs ?? 0} tooltip="Total hardening simulation runs recorded in the signed ledger" />
               <Stat label="Reports" value={state?.report_count ?? 0} tooltip="Investigation and simulation reports generated" />
               <Stat label="Issues" value={state?.finding_count ?? 0} tooltip="Active security findings from the most recent hardening run" />
             </div>
             <a
               href="/zephyr"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold
-                         bg-emerald-500/[0.08] border border-emerald-500/20 text-emerald-400
-                         hover:bg-emerald-500/[0.15] hover:border-emerald-500/30 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-sm text-[11px] font-semibold
+                         bg-[#D4B56A]/[0.08] border border-[#D4B56A]/20 text-[#D4B56A]
+                         hover:bg-[#D4B56A]/[0.15] hover:border-[#D4B56A]/30 transition-all cursor-pointer"
               title="Learn how Zephyr cryptographic signing works — signing, verification, and the Gatekeeper"
             >
               <Shield className="w-3.5 h-3.5" />
@@ -1091,11 +1093,11 @@ export default function Home() {
           {/* Left: Hive + Findings */}
           <div className="col-span-4 space-y-5">
             {/* Hive */}
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+            <div className="rounded-sm border border-[#3D382E] bg-[#181816] p-4">
+              <div className="text-[11px] text-[#8A7D65] uppercase tracking-widest font-semibold mb-1 flex items-center gap-1.5 pb-2 border-b border-[#3D382E]">
                 <Hexagon className="w-3 h-3" /> The Hive
               </div>
-              <div className="text-[10px] text-zinc-600 mb-3">Agent status — hexagons pulse when agents are actively investigating</div>
+              <div className="text-[10px] text-[#8A7D65] mb-3 mt-2">Agent status — hexagons pulse when agents are actively investigating</div>
               <div className="flex flex-wrap justify-center gap-0.5">
                 {AGENTS.map((a) => (
                   <HiveCell
@@ -1109,20 +1111,20 @@ export default function Home() {
             </div>
 
             {/* Findings */}
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-              <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+            <div className="rounded-sm border border-[#3D382E] bg-[#181816] p-4">
+              <div className="text-[11px] text-[#8A7D65] uppercase tracking-widest font-semibold mb-3 flex items-center gap-1.5 pb-2 border-b border-[#3D382E]">
                 <Lock className="w-3 h-3" /> Latest Findings
                 {findings.length > 0 && (
-                  <span className="ml-auto text-zinc-600 normal-case tracking-normal">{findings.length} found</span>
+                  <span className="ml-auto text-[#8A7D65] normal-case tracking-normal">{findings.length} found</span>
                 )}
               </div>
               {latestSummary && (
-                <p className="text-[11px] text-zinc-400 leading-relaxed mb-3 pb-3 border-b border-white/[0.06]">
+                <p className="text-[11px] text-[#B8A880] leading-relaxed mb-3 pb-3 border-b border-[#3D382E]">
                   {latestSummary}
                 </p>
               )}
               {findings.length === 0 ? (
-                <div className="text-xs text-zinc-600 text-center py-6">
+                <div className="text-xs text-[#8A7D65] text-center py-6">
                   Run a scan to see findings
                 </div>
               ) : (
@@ -1136,8 +1138,8 @@ export default function Home() {
 
             {/* Ledger */}
             {state?.ledger && state.ledger.length > 0 && (
-              <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
-                <div className="text-[9px] text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-1.5" title="Security posture score over time. Each bar represents one hardening run. Green >= 70, Yellow >= 40, Red < 40.">
+              <div className="rounded-sm border border-[#3D382E] bg-[#181816] p-4">
+                <div className="text-[11px] text-[#8A7D65] uppercase tracking-widest font-semibold mb-3 flex items-center gap-1.5 pb-2 border-b border-[#3D382E]" title="Security posture score over time. Each bar represents one hardening run. Green >= 70, Yellow >= 40, Red < 40.">
                   <ScrollText className="w-3 h-3" /> Hardening Ledger
                 </div>
                 <LedgerChart entries={state.ledger} />
@@ -1150,7 +1152,7 @@ export default function Home() {
 
           {/* Right: Tabbed panel (Event Stream / Reports) */}
           <div className="col-span-8">
-            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 min-h-[600px]">
+            <div className="rounded-sm border border-[#3D382E] bg-[#181816] p-4 min-h-[600px]">
               {/* Tab bar */}
               <div className="flex items-center gap-2 mb-3">
                 {([
@@ -1163,11 +1165,11 @@ export default function Home() {
                     <button
                       key={tab.id}
                       onClick={() => setRightTab(tab.id)}
-                      className="relative px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest font-medium transition-all cursor-pointer flex items-center gap-1.5"
+                      className="relative px-3 py-1.5 rounded-sm text-[10px] uppercase tracking-widest font-medium transition-all cursor-pointer flex items-center gap-1.5"
                       style={{
-                        background: active ? "rgba(245,158,11,0.08)" : "transparent",
-                        border: `1px solid ${active ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.06)"}`,
-                        color: active ? "#f59e0b" : "#71717a",
+                        background: active ? "rgba(212,181,106,0.10)" : "transparent",
+                        border: `1px solid ${active ? "rgba(212,181,106,0.30)" : "#3D382E"}`,
+                        color: active ? "#D4B56A" : "#8A7D65",
                       }}
                     >
                       <Icon className="w-3 h-3" />
@@ -1176,8 +1178,8 @@ export default function Home() {
                         <span
                           className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold"
                           style={{
-                            background: active ? "rgba(245,158,11,0.15)" : "rgba(255,255,255,0.06)",
-                            color: active ? "#f59e0b" : "#71717a",
+                            background: active ? "rgba(212,181,106,0.15)" : "rgba(61,56,46,0.5)",
+                            color: active ? "#D4B56A" : "#8A7D65",
                           }}
                         >
                           {tab.count}
@@ -1189,7 +1191,7 @@ export default function Home() {
 
                 {/* Running indicator (shown regardless of tab) */}
                 {running && (
-                  <div className="ml-auto flex items-center gap-1.5 text-[9px] text-amber-500 uppercase tracking-widest">
+                  <div className="ml-auto flex items-center gap-1.5 text-[9px] text-[#D4B56A] uppercase tracking-widest">
                     <Loader2 className="w-3 h-3 animate-spin" />
                     Running {running}...
                   </div>
@@ -1199,12 +1201,12 @@ export default function Home() {
               {/* Tab content */}
               {rightTab === "events" ? (
                 events.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-[500px] text-zinc-600">
-                    <Hexagon className="w-12 h-12 text-zinc-800 mb-4" />
-                    <p className="text-sm font-medium text-zinc-500">
+                  <div className="flex flex-col items-center justify-center h-[500px] text-[#8A7D65]">
+                    <Hexagon className="w-12 h-12 text-[#3D382E] mb-4" />
+                    <p className="text-sm font-medium text-[#B8A880]">
                       {connected ? "Click a command above to start" : "Waiting for daemon..."}
                     </p>
-                    <p className="text-xs text-zinc-600 mt-1">
+                    <p className="text-xs text-[#8A7D65] mt-1">
                       {connected ? "You'll see real-time events as AI agents investigate your codebase" : "Start the daemon: honeymoon serve --repo ."}
                     </p>
                   </div>
@@ -1226,10 +1228,10 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <footer className="mt-8 pt-4 border-t border-white/[0.04] flex justify-between text-[10px] text-zinc-700">
+        <footer className="mt-8 pt-4 border-t border-[#3D382E] flex justify-between text-[10px] text-[#8A7D65]">
           <span>HONEYMOON &middot; Adjective LLC</span>
           <span className="flex items-center gap-1">
-            {connected ? <Wifi className="w-2.5 h-2.5 text-emerald-600" /> : <WifiOff className="w-2.5 h-2.5 text-red-600" />}
+            {connected ? <Wifi className="w-2.5 h-2.5 text-[#4ADE80]" /> : <WifiOff className="w-2.5 h-2.5 text-[#F87171]" />}
             ws://127.0.0.1:4200
           </span>
         </footer>
