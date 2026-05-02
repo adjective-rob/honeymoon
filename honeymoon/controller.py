@@ -145,10 +145,6 @@ class Controller:
             run_id=run_id,
         )
 
-        # Ensure we plan against the most recent code.
-        pre_task_git_fetch(self.repo_path)
-        check_repo_clean(self.repo_path)
-
         # Initialize structured task state
         state = TaskState(
             task_id=task.task_id,
@@ -195,6 +191,9 @@ class Controller:
         )
 
         try:
+            # Ensure we plan against the most recent code.
+            pre_task_git_fetch(self.repo_path)
+            check_repo_clean(self.repo_path)
             failure_context = startup(ctx, task)
 
             # Surgical mode: from CLI flag OR from task auto-detection

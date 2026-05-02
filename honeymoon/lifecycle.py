@@ -70,6 +70,7 @@ def check_repo_clean(repo_path: Path) -> None:
         line for line in status.splitlines()
         if not line[3:].startswith(".honeymoon/")
         and not line[3:].startswith(".context/")
+        and not line[3:].startswith(".zephyrci/")
     ]
 
     if dirty_files:
