@@ -1230,7 +1230,7 @@ export default function Home() {
           <span>HONEYMOON &middot; Adjective LLC</span>
           <span className="flex items-center gap-1">
             {connected ? <Wifi className="w-2.5 h-2.5 text-[#4ADE80]" /> : <WifiOff className="w-2.5 h-2.5 text-[#F87171]" />}
-            ws://127.0.0.1:4200
+            {connected ? "Connected" : "Offline"}
           </span>
         </footer>
       </div>
