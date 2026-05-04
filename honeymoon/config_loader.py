@@ -61,6 +61,13 @@ class ContextConfig(BaseModel):
     brain: str = "~/.honeymoon/brain"
     min_version: str = "1.2.0"
 
+class HivemindConfig(BaseModel):
+    """Optional Smartify Hivemind gateway. Set HIVEMIND_API_KEY to enable."""
+    enabled: bool = False
+    base_url: str = "https://api.hivemind.smartify.ai/v1"
+    hivemind_id: str = ""  # Override per-request with X-Hivemind-Id header
+
+
 class AutomationConfig(BaseModel):
     rebase_before_pr: bool = True
     auto_merge_pr: bool = False  # Default to False for safety
@@ -86,6 +93,7 @@ class HoneymoonConfig(BaseModel):
     boundaries: BoundaryConfig = Field(default_factory=BoundaryConfig)
     context: ContextConfig = Field(default_factory=ContextConfig)
     automation: AutomationConfig = Field(default_factory=AutomationConfig)
+    hivemind: HivemindConfig = Field(default_factory=HivemindConfig)
     pipeline: list[PipelineStep] = Field(default_factory=list)
 
 # ---------------------------------------------------------------------------
@@ -139,6 +147,14 @@ def load_config(repo_path: Path | None = None, profile: str | None = None) -> Ho
     # 4. Env overrides for API keys (informational — LiteLLM reads these directly)
     # We just validate they exist.
     config = HoneymoonConfig(**base)
+
+    # 5. Auto-enable Hivemind if HIVEMIND_API_KEY is set
+    hivemind_key = os.environ.get("HIVEMIND_API_KEY")
+    if hivemind_key and not config.hivemind.enabled:
+        config.hivemind.enabled = True
+    if os.environ.get("HIVEMIND_ID"):
+        config.hivemind.hivemind_id = os.environ["HIVEMIND_ID"]
+
     return config
 
 
@@ -149,4 +165,5 @@ def validate_api_keys() -> dict[str, bool]:
         "OPENAI_API_KEY":    bool(os.environ.get("OPENAI_API_KEY")),
         "GOOGLE_API_KEY":    bool(os.environ.get("GOOGLE_API_KEY")),
         "GEMINI_API_KEY":    bool(os.environ.get("GEMINI_API_KEY")),
+        "HIVEMIND_API_KEY":  bool(os.environ.get("HIVEMIND_API_KEY")),
     }
