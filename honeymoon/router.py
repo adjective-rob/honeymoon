@@ -8,7 +8,6 @@ retries, structured logging, and automatic 503 failover.
 
 from __future__ import annotations
 
-import os
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -271,7 +270,7 @@ class Router:
             max_dollars=config.limits.max_dollars_per_task,
         )
         self.context_monitor = ContextMonitor(safe_headroom_tokens=8192)
-
+        
         self._role_model_map = {
             field_name: getattr(config.routing, field_name)
             for field_name in type(config.routing).model_fields
@@ -282,18 +281,6 @@ class Router:
             step.agent_role: step.fallback_tier
             for step in config.pipeline
         }
-
-        # Hivemind gateway: when enabled, route through Smartify Hivemind
-        self._hivemind_enabled = config.hivemind.enabled
-        self._hivemind_base_url = config.hivemind.base_url
-        self._hivemind_id = config.hivemind.hivemind_id
-        self._hivemind_api_key = os.environ.get("HIVEMIND_API_KEY", "")
-
-        if self._hivemind_enabled:
-            logger.info(
-                f"[ROUTER] Hivemind gateway enabled → {self._hivemind_base_url}"
-                + (f" (hivemind_id={self._hivemind_id})" if self._hivemind_id else "")
-            )
 
         litellm.suppress_debug_info = True
 
@@ -382,15 +369,6 @@ class Router:
             model, safe_messages, temperature, max_tokens, response_format, tools, **kwargs
         )
 
-        # Hivemind gateway: inject base URL, API key, and headers
-        if self._hivemind_enabled and self._hivemind_api_key:
-            kwargs_dict["api_base"] = self._hivemind_base_url
-            kwargs_dict["api_key"] = self._hivemind_api_key
-            extra_headers = kwargs_dict.get("extra_headers", {})
-            if self._hivemind_id:
-                extra_headers["X-Hivemind-Id"] = self._hivemind_id
-            kwargs_dict["extra_headers"] = extra_headers
-
         bus.emit(
             event_type="llm.started",
             payload={"role": role, "model": model, "message_count": len(messages)},
@@ -418,14 +396,6 @@ class Router:
                 fallback_model, safe_messages, temperature, max_tokens,
                 response_format, tools, **kwargs
             )
-            # Hivemind gateway on fallback path too
-            if self._hivemind_enabled and self._hivemind_api_key:
-                kwargs_dict["api_base"] = self._hivemind_base_url
-                kwargs_dict["api_key"] = self._hivemind_api_key
-                extra_headers = {}
-                if self._hivemind_id:
-                    extra_headers["X-Hivemind-Id"] = self._hivemind_id
-                kwargs_dict["extra_headers"] = extra_headers
             response = litellm.completion(**kwargs_dict)
         except Exception as e:
             error_str = str(e)
