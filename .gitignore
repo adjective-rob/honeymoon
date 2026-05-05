@@ -255,3 +255,4 @@ tasks_for_claude_code/.glitchlab/task_state.json
 .context/session.json
 .context/.prelude/
 .honeymoon/
+.zephyrci/
