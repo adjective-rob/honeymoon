@@ -254,3 +254,4 @@ tasks_for_claude_code/.glitchlab/task_state.json
 .honeymoon/keys/
 .context/session.json
 .context/.prelude/
+.honeymoon/
