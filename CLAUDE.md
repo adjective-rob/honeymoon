@@ -47,7 +47,7 @@ Missions are YAML profiles in `honeymoon/missions/`. They override agent prompts
 | `ledger.py` | Append-only signed hardening ledger |
 | `report.py` | Report writer (md + json + html + SPEC) |
 | `daemon.py` | WebSocket + HTTP server for live dashboard |
-| `mcp_server.py` | MCP server exposing 8 tools for agent integration |
+| `mcp_server.py` | MCP server exposing 15 tools for agent integration |
 
 ### Invariants
 
@@ -80,7 +80,7 @@ High-coupling files. Read downstream consumers before editing.
 | `config.yaml` | Runtime defaults. Model: gpt-5.4-mini. Budget: 500K tokens / $1.00. |
 | `ledger.py` | Hardening ledger. Posture scoring, diff engine, Ed25519 signing. |
 | `report.py` | Report generation. write_report, write_spec, _write_html_report. |
-| `mcp_server.py` | MCP tool definitions. 8 tools for external agent integration. |
+| `mcp_server.py` | MCP tool definitions. 15 tools for external agent integration. |
 
 ## Agents
 
@@ -112,8 +112,10 @@ Mission roles (defined in YAML, reuse agent classes):
 | `harden` | Adversarial simulation + posture tracking. `--posture` for status. |
 | `simulate` | Red/Blue attack simulation with signed chains. |
 | `scan` | Quick investigate + auto-opens HTML report. |
+| `ssp` | Generate a NIST 800-53 Rev 5 System Security Plan. `--baseline low/moderate/high`. |
 | `investigate` | Manual objective investigation with signed report. |
 | `audit` | Static analysis + dependency vulns (pip-audit/npm audit/cargo audit). |
+| `compare` | Compare two task runs — cost, loop steps, planner accuracy, tool divergence. |
 | `run` | Main dev pipeline. `--issue`, `--task-file`, `--surgical`, etc. |
 | `interactive` | Human-in-the-loop mode. |
 | `swarm` | Decompose + parallel execution. |
@@ -128,7 +130,7 @@ Mission roles (defined in YAML, reuse agent classes):
 
 ## MCP Server
 
-`honeymoon/mcp_server.py` exposes 8 tools via MCP (stdio transport):
+`honeymoon/mcp_server.py` exposes 15 tools via MCP (stdio transport):
 
 | Tool | Type | Description |
 |---|---|---|
@@ -136,10 +138,17 @@ Mission roles (defined in YAML, reuse agent classes):
 | `honeymoon_simulate` | subprocess | Red/Blue adversarial simulation |
 | `honeymoon_harden` | subprocess + ledger | Hardening run with posture diff |
 | `honeymoon_deep` | subprocess + audit | Full deep scan with parallel lanes |
+| `honeymoon_fix_finding` | subprocess | Generate a remediation task from a finding and optionally execute it |
 | `honeymoon_posture` | direct Python | Read-only posture score (free, instant) |
 | `honeymoon_audit` | direct Python | Static analysis (free, no LLM) |
 | `honeymoon_get_report` | direct Python | Get specific or latest report |
 | `honeymoon_get_ledger` | direct Python | Full hardening ledger history |
+| `honeymoon_verify_report` | direct Python | Verify a report's Ed25519 signature |
+| `honeymoon_diff_posture` | direct Python | Compare two hardening runs by posture scores and findings |
+| `honeymoon_get_spec` | direct Python | Get the latest SPEC.md content from the reports directory |
+| `honeymoon_threat_intel` | direct Python | Query the global threat intelligence database |
+| `honeymoon_threat_intel_for_repo` | direct Python | Threat patterns from other repos this repo should check for |
+| `honeymoon_threat_intel_stats` | direct Python | Aggregate stats across all repos in the threat intel database |
 
 Pipeline tools run via subprocess. Read-only tools call Python directly.
 
@@ -193,7 +202,7 @@ Role limits: implementer 75%, security 40%, planner 15%.
 - **Ruff** for linting. Line length 100.
 - **Loguru** for logging. No `print()` in library code.
 - **Rich** for CLI output.
-- **Tests** in `tests/`. 222 passing.
+- **Tests** in `tests/`. 223 passing.
 - **Imports:** Absolute only (`from honeymoon.*`).
 
 ## Before You Start Any Task
