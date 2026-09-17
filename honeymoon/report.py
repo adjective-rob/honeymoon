@@ -22,6 +22,13 @@ from typing import Any
 from loguru import logger
 from rich.console import Console
 
+from honeymoon.icons import (
+    SEVERITY_LABELS,
+    VERDICT_LABELS,
+    icon_svg,
+    severity_icon_svg,
+    verdict_icon_svg,
+)
 from honeymoon.signing import HiveSigner
 
 console = Console()
@@ -104,7 +111,7 @@ def write_report(
     finding_list = findings.get("findings", [])
 
     # Header
-    sections.append(f"# 🍯 Investigation Report — {short_id}")
+    sections.append(f"# Investigation Report — {short_id}")
     sections.append("")
     sections.append("| Field | Value |")
     sections.append("|-------|-------|")
@@ -123,8 +130,8 @@ def write_report(
         risk_parts = []
         for sev in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]:
             if sev in severity_counts:
-                icon = {"CRITICAL": "🔴", "HIGH": "🟠", "MEDIUM": "🟡", "LOW": "🔵", "INFO": "⚪"}.get(sev, "⚪")
-                risk_parts.append(f"{icon} {severity_counts[sev]} {sev}")
+                label = SEVERITY_LABELS.get(sev, SEVERITY_LABELS["INFO"])
+                risk_parts.append(f"{label} {severity_counts[sev]}")
         sections.append(f"| **Risk Profile** | {' · '.join(risk_parts)} |")
 
     sections.append("")
@@ -148,15 +155,9 @@ def write_report(
             confidence = finding.get("confidence", "medium")
             title = finding.get("title", f"Finding {i}")
 
-            severity_icon = {
-                "CRITICAL": "🔴",
-                "HIGH": "🟠",
-                "MEDIUM": "🟡",
-                "LOW": "🔵",
-                "INFO": "⚪",
-            }.get(severity, "⚪")
+            severity_label = SEVERITY_LABELS.get(severity, SEVERITY_LABELS["INFO"])
 
-            sections.append(f"### {severity_icon} {i}. {title}")
+            sections.append(f"### {severity_label} {i}. {title}")
             sections.append("")
             sections.append(f"**Severity:** {severity} | **Confidence:** {confidence}")
             sections.append("")
@@ -190,12 +191,8 @@ def write_report(
         # Map security agent verdicts to investigation verdicts
         verdict_map = {"pass": "confirmed", "warn": "partial", "block": "disputed"}
         verdict = verdict_map.get(verdict, verdict)
-        verdict_icon = {
-            "confirmed": "✅",
-            "partial": "⚠️",
-            "disputed": "❌",
-        }.get(verdict, "❓")
-        sections.append(f"**Verdict:** {verdict_icon} {verdict.upper()}")
+        verdict_label = VERDICT_LABELS.get(verdict, "[UNVERIFIED]")
+        sections.append(f"**Verdict:** {verdict_label} {verdict.upper()}")
         sections.append("")
         # Include verifier summary and issues
         if verification.get("summary"):
@@ -243,7 +240,7 @@ def write_report(
     report_path.write_text(report_body)
 
     logger.info(f"[REPORT] Written to {report_path}")
-    console.print(f"\n[bold green]📋 Report written: {report_path}[/]")
+    console.print(f"\n[bold green]Report written: {report_path}[/]")
 
     # Also write structured JSON for machine consumption
     json_path = reports_dir / f"{short_id}.json"
@@ -286,103 +283,28 @@ def write_report(
 
 
 def _severity_svg(severity: str) -> str:
-    """Return an inline SVG icon for a severity level."""
-    icons = {
-        "critical": (
-            '<span class="icon"><svg width="14" height="14" viewBox="0 0 14 14">'
-            '<circle cx="7" cy="7" r="6" fill="#ef4444"/>'
-            '<text x="7" y="7" text-anchor="middle" dominant-baseline="central"'
-            ' font-size="9" font-weight="700" fill="#fff">!</text>'
-            '</svg></span>'
-        ),
-        "high": (
-            '<span class="icon"><svg width="14" height="14" viewBox="0 0 14 14">'
-            '<polygon points="7,1 13,13 1,13" fill="#f97316"/>'
-            '</svg></span>'
-        ),
-        "medium": (
-            '<span class="icon"><svg width="14" height="14" viewBox="0 0 14 14">'
-            '<polygon points="7,1 13,7 7,13 1,7" fill="#eab308"/>'
-            '</svg></span>'
-        ),
-        "low": (
-            '<span class="icon"><svg width="14" height="14" viewBox="0 0 14 14">'
-            '<circle cx="7" cy="7" r="6" fill="none" stroke="#3b82f6" stroke-width="1.5"/>'
-            '<text x="7" y="7" text-anchor="middle" dominant-baseline="central"'
-            ' font-size="8" font-weight="700" fill="#3b82f6">i</text>'
-            '</svg></span>'
-        ),
-        "info": (
-            '<span class="icon"><svg width="14" height="14" viewBox="0 0 14 14">'
-            '<circle cx="7" cy="7" r="5" fill="none" stroke="#6b7280" stroke-width="1.5"/>'
-            '</svg></span>'
-        ),
-    }
-    return icons.get(severity.lower(), icons["info"])
+    """Return an inline Lucide SVG icon for a severity level."""
+    return f'<span class="icon">{severity_icon_svg(severity, size=14)}</span>'
 
 
 def _verdict_svg(verdict: str) -> str:
-    """Return an inline SVG icon for a verification verdict."""
-    icons = {
-        "confirmed": (
-            '<svg width="20" height="20" viewBox="0 0 20 20">'
-            '<circle cx="10" cy="10" r="9" fill="none" stroke="#10b981" stroke-width="1.5"/>'
-            '<polyline points="6,10 9,13 14,7" fill="none" stroke="#10b981"'
-            ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
-            '</svg>'
-        ),
-        "partial": (
-            '<svg width="20" height="20" viewBox="0 0 20 20">'
-            '<polygon points="10,2 19,18 1,18" fill="none" stroke="#eab308" stroke-width="1.5"/>'
-            '<text x="10" y="14" text-anchor="middle" font-size="11"'
-            ' font-weight="700" fill="#eab308">!</text>'
-            '</svg>'
-        ),
-        "disputed": (
-            '<svg width="20" height="20" viewBox="0 0 20 20">'
-            '<circle cx="10" cy="10" r="9" fill="none" stroke="#ef4444" stroke-width="1.5"/>'
-            '<line x1="6" y1="6" x2="14" y2="14" stroke="#ef4444"'
-            ' stroke-width="2" stroke-linecap="round"/>'
-            '<line x1="14" y1="6" x2="6" y2="14" stroke="#ef4444"'
-            ' stroke-width="2" stroke-linecap="round"/>'
-            '</svg>'
-        ),
-    }
-    return icons.get(verdict, icons.get("partial", ""))
+    """Return an inline Lucide SVG icon for a verification verdict."""
+    return verdict_icon_svg(verdict, size=20)
 
 
 def _shield_svg() -> str:
-    """Return an inline SVG shield icon for the attestation section."""
-    return (
-        '<span class="icon"><svg width="16" height="16" viewBox="0 0 16 16">'
-        '<path d="M8,1 L14,3.5 L14,7.5 C14,11 11,13.5 8,15 C5,13.5 2,11 2,7.5'
-        ' L2,3.5 Z" fill="none" stroke="#10b981" stroke-width="1.2"/>'
-        '<polyline points="5.5,8 7.5,10 10.5,6" fill="none" stroke="#6ee7b7"'
-        ' stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
-        '</svg></span>'
-    )
+    """Return an inline Lucide shield icon for the attestation section."""
+    return f'<span class="icon">{icon_svg("shield-check", size=16, color="#10b981")}</span>'
 
 
 def _honeycomb_svg() -> str:
-    """Return an inline SVG honeycomb icon for the header."""
-    return (
-        '<span class="icon"><svg width="22" height="22" viewBox="0 0 24 24"'
-        ' fill="none" stroke="#fff" stroke-width="1.5">'
-        '<polygon points="12,2 20,7 20,17 12,22 4,17 4,7"/>'
-        '<polygon points="12,7 16,9.5 16,14.5 12,17 8,14.5 8,9.5"'
-        ' fill="rgba(255,255,255,0.15)"/>'
-        '</svg></span>'
-    )
+    """Return an inline Lucide hexagon icon for the header."""
+    return f'<span class="icon">{icon_svg("hexagon", size=22, color="#fff")}</span>'
 
 
 def _provenance_dot_svg() -> str:
-    """Return an inline SVG checkmark for provenance chain nodes."""
-    return (
-        '<svg viewBox="0 0 14 14" fill="none" stroke="#6ee7b7" stroke-width="2"'
-        ' stroke-linecap="round" stroke-linejoin="round">'
-        '<polyline points="3,7 6,10 11,4"/>'
-        '</svg>'
-    )
+    """Return an inline Lucide check icon for provenance chain nodes."""
+    return icon_svg("check", size=14, color="#6ee7b7")
 
 
 def _build_provenance_html(provenance: list[dict[str, Any]]) -> str:
@@ -517,13 +439,11 @@ def _write_html_report(
 </div>'''
 
     # Build recommendations HTML
-    arrow_svg = (
-        '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" '
-        'stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" '
-        'style="flex-shrink:0;margin-top:3px">'
-        '<line x1="1" y1="7" x2="11" y2="7"/>'
-        '<polyline points="7,3 11,7 7,11"/>'
-        '</svg>'
+    arrow_svg = icon_svg(
+        "arrow-right",
+        size=14,
+        color="#10b981",
+        extra_attrs='style="flex-shrink:0;margin-top:3px"',
     )
     recs_html = ""
     for rec in findings.get("recommendations", []):

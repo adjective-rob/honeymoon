@@ -1,6 +1,12 @@
 "use client";
 
-import { Shield, ArrowRight, Lock, Hexagon, FileCheck, Key, Fingerprint, GitBranch, CheckCircle2, XCircle, ChevronDown } from "lucide-react";
+import { Shield, ArrowRight, Lock, Hexagon, FileCheck, Key, Fingerprint, GitBranch, CheckCircle2, XCircle, ChevronDown, Package, ShieldCheck, BadgeCheck } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+// Inline icon sized for the monospace transcript blocks.
+function TermIcon({ icon: Icon, className = "" }: { icon: LucideIcon; className?: string }) {
+  return <Icon className={`inline-block w-3.5 h-3.5 align-[-0.15em] mr-1.5 ${className}`} />;
+}
 
 export default function ZephyrPage() {
   return (
@@ -46,7 +52,7 @@ export default function ZephyrPage() {
                 </div>
                 <div className="text-center">
                   <div className="text-sm font-semibold text-[#e5e7eb]">Serialize</div>
-                  <div className="text-[11px] text-[#8A7D65] mt-1">Event → deterministic<br />JSON payload</div>
+                  <div className="text-[11px] text-[#8A7D65] mt-1">Event <ArrowRight className="inline-block w-3 h-3 align-[-0.1em]" /> deterministic<br />JSON payload</div>
                 </div>
               </div>
 
@@ -72,7 +78,7 @@ export default function ZephyrPage() {
                 </div>
                 <div className="text-center">
                   <div className="text-sm font-semibold text-[#e5e7eb]">Append</div>
-                  <div className="text-[11px] text-[#8A7D65] mt-1">Signed envelope →<br />append-only ledger</div>
+                  <div className="text-[11px] text-[#8A7D65] mt-1">Signed envelope <ArrowRight className="inline-block w-3 h-3 align-[-0.1em]" /><br />append-only ledger</div>
                 </div>
               </div>
             </div>
@@ -187,14 +193,14 @@ export default function ZephyrPage() {
             {/* Pre-push hook code */}
             <div className="rounded-sm bg-[#141414] border border-[#3D382E] p-5 font-mono text-[11px] leading-relaxed mb-6">
               <div className="text-[#8A7D65] mb-2"># .git/hooks/pre-push (installed by zephyr init-githooks)</div>
-              <div className="text-blue-400">echo</div> <span className="text-emerald-400">&quot;📦 Generating SBOF digest...&quot;</span><br/>
+              <div className="text-blue-400">echo</div> <span className="text-emerald-400">&quot;<TermIcon icon={Package} />Generating SBOF digest...&quot;</span><br/>
               <span className="text-[#D4B56A]">zephyr digest</span> --output .zephyrci/digest.json<br/><br/>
-              <div className="text-blue-400">echo</div> <span className="text-emerald-400">&quot;📦 Exporting SBOF bundle...&quot;</span><br/>
+              <div className="text-blue-400">echo</div> <span className="text-emerald-400">&quot;<TermIcon icon={Package} />Exporting SBOF bundle...&quot;</span><br/>
               <span className="text-[#D4B56A]">zephyr sbof-export</span> --digest .zephyrci/digest.json --out .zephyrci/sbof.json<br/><br/>
-              <div className="text-blue-400">echo</div> <span className="text-emerald-400">&quot;🛡️ Running Zephyr gatekeeper...&quot;</span><br/>
+              <div className="text-blue-400">echo</div> <span className="text-emerald-400">&quot;<TermIcon icon={ShieldCheck} />Running Zephyr gatekeeper...&quot;</span><br/>
               <span className="text-[#D4B56A]">zephyr gatekeeper</span> --input .zephyrci/sbof.json<br/><br/>
               <span className="text-red-400">if</span> [ $? -ne 0 ]; <span className="text-red-400">then</span><br/>
-              <span className="pl-4 text-red-400">echo</span> <span className="text-red-300">&quot;❌ Gatekeeper failed. Push aborted.&quot;</span><br/>
+              <span className="pl-4 text-red-400">echo</span> <span className="text-red-300">&quot;<TermIcon icon={XCircle} />Gatekeeper failed. Push aborted.&quot;</span><br/>
               <span className="pl-4 text-red-400">exit 1</span><br/>
               <span className="text-red-400">fi</span>
             </div>
@@ -210,7 +216,7 @@ export default function ZephyrPage() {
                 <div className="font-mono text-[11px] leading-relaxed">
                   <div className="text-[#D4B56A]">allowed_signers:</div>
                   <div className="text-emerald-400 pl-4">- 1/QL5bc6bfAIWy3uJ1KYE...</div>
-                  <div className="text-[#8A7D65] pl-4"># ↑ your machine&apos;s public key</div>
+                  <div className="text-[#8A7D65] pl-4"># your machine&apos;s public key</div>
                 </div>
               </div>
 
@@ -221,8 +227,8 @@ export default function ZephyrPage() {
                   <span className="text-[10px] text-[#8A7D65] font-normal">zephyr whoami</span>
                 </div>
                 <div className="font-mono text-[11px] leading-relaxed">
-                  <div className="text-[#8A7D65]">🪪 Zephyr Identity:</div>
-                  <div className="text-emerald-400 pl-4">🔑 1/QL5bc6bfAIWy3uJ1KYE...</div>
+                  <div className="text-[#8A7D65]"><TermIcon icon={BadgeCheck} />Zephyr Identity:</div>
+                  <div className="text-emerald-400 pl-4"><TermIcon icon={Key} />1/QL5bc6bfAIWy3uJ1KYE...</div>
                 </div>
               </div>
             </div>
@@ -235,8 +241,8 @@ export default function ZephyrPage() {
                   <span className="font-semibold text-emerald-400 text-sm">Key in trust policy</span>
                 </div>
                 <div className="font-mono text-[11px] text-[#B8A880] space-y-1">
-                  <div>🛡️ Running Zephyr gatekeeper...</div>
-                  <div className="text-emerald-400">✅ Zephyr gatekeeper passed.</div>
+                  <div><TermIcon icon={ShieldCheck} />Running Zephyr gatekeeper...</div>
+                  <div className="text-emerald-400"><TermIcon icon={CheckCircle2} />Zephyr gatekeeper passed.</div>
                   <div className="text-emerald-400">Proceeding with push.</div>
                 </div>
               </div>
@@ -247,8 +253,8 @@ export default function ZephyrPage() {
                   <span className="font-semibold text-red-400 text-sm">Key NOT in trust policy</span>
                 </div>
                 <div className="font-mono text-[11px] text-[#B8A880] space-y-1">
-                  <div>🛡️ Running Zephyr gatekeeper...</div>
-                  <div className="text-red-400">❌ Gatekeeper failed. Push aborted.</div>
+                  <div><TermIcon icon={ShieldCheck} />Running Zephyr gatekeeper...</div>
+                  <div className="text-red-400"><TermIcon icon={XCircle} />Gatekeeper failed. Push aborted.</div>
                   <div className="text-[#8A7D65]"># git push exits with code 1</div>
                   <div className="text-[#8A7D65]"># files stay on the machine</div>
                 </div>
@@ -284,13 +290,13 @@ export default function ZephyrPage() {
               <div>
                 <div className="text-[#8A7D65]"># 4. Push — gatekeeper runs automatically</div>
                 <div className="text-[#D4B56A]">$ git push origin main</div>
-                <div className="text-emerald-400">✅ Zephyr gatekeeper passed. Proceeding with push.</div>
+                <div className="text-emerald-400"><TermIcon icon={CheckCircle2} />Zephyr gatekeeper passed. Proceeding with push.</div>
               </div>
               <div>
                 <div className="text-[#8A7D65]"># 5. Demo a block: clear the trust policy</div>
                 <div className="text-[#D4B56A]">$ echo &quot;allowed_signers: []&quot; &gt; ~/.zephyr/trust-policy.yml</div>
                 <div className="text-[#D4B56A]">$ git push origin main</div>
-                <div className="text-red-400">❌ Gatekeeper failed. Push aborted.</div>
+                <div className="text-red-400"><TermIcon icon={XCircle} />Gatekeeper failed. Push aborted.</div>
               </div>
               <div>
                 <div className="text-[#8A7D65]"># 6. Restore — add your key back</div>
@@ -312,21 +318,21 @@ export default function ZephyrPage() {
                 {
                   icon: Hexagon,
                   color: "#D4B56A",
-                  title: "Pipeline Events → audit.jsonl",
+                  title: "Pipeline Events to audit.jsonl",
                   desc: "Every agent action, tool call, plan submission, and security verdict is serialized, signed, and appended to the audit log. Zephyr hardware signing takes priority if available; Ed25519 software signing is the fallback.",
                   items: ["Agent activated: planner", "Tool executed: npm test (exit 0)", "Finding submitted: allowlist bypass", "Security verdict: warn"],
                 },
                 {
                   icon: FileCheck,
                   color: "#3b82f6",
-                  title: "Investigation Reports → reports/*.md",
+                  title: "Investigation Reports to reports/*.md",
                   desc: "Every scan, simulation, and deep scan report is Ed25519 signed. The signature covers everything above the attestation separator. Anyone with the public key can verify the report is authentic and unmodified.",
                   items: ["Summary + findings + evidence", "Verification verdict", "Cost breakdown", "Attestation block with signature"],
                 },
                 {
                   icon: Shield,
                   color: "#10b981",
-                  title: "Hardening Ledger → ledger.jsonl",
+                  title: "Hardening Ledger to ledger.jsonl",
                   desc: "Every hardening run appends a signed entry to the ledger. The posture score, new/resolved findings, and severity breakdown are all covered by the signature. The ledger is append-only — you cannot retroactively insert or modify entries.",
                   items: ["Posture score: 80/100", "New findings: 2, Resolved: 5", "Trend: improving", "Signed by key 56c5...71a5"],
                 },

@@ -18,6 +18,7 @@ from typing import Any
 from loguru import logger
 from rich.console import Console
 
+from honeymoon.icons import icon_svg, status_icon_svg
 from honeymoon.signing import HiveSigner
 from honeymoon.ssp.controls import (
     Control,
@@ -413,32 +414,8 @@ def generate_ssp(
 # ---------------------------------------------------------------------------
 
 def _status_svg(status: str) -> str:
-    """Return an inline SVG icon for control status."""
-    icons = {
-        "implemented": (
-            '<svg width="16" height="16" viewBox="0 0 16 16" fill="none">'
-            '<circle cx="8" cy="8" r="7" fill="none" stroke="#10b981" stroke-width="1.5"/>'
-            '<polyline points="5,8 7,10.5 11,5.5" fill="none" stroke="#10b981"'
-            ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>'
-            '</svg>'
-        ),
-        "partial": (
-            '<svg width="16" height="16" viewBox="0 0 16 16" fill="none">'
-            '<circle cx="8" cy="8" r="7" fill="none" stroke="#eab308" stroke-width="1.5"/>'
-            '<line x1="8" y1="4.5" x2="8" y2="8.5" stroke="#eab308"'
-            ' stroke-width="2" stroke-linecap="round"/>'
-            '<circle cx="8" cy="11" r="1" fill="#eab308"/>'
-            '</svg>'
-        ),
-        "planned": (
-            '<svg width="16" height="16" viewBox="0 0 16 16" fill="none">'
-            '<circle cx="8" cy="8" r="7" fill="none" stroke="#6b7280" stroke-width="1.5"/>'
-            '<line x1="5" y1="8" x2="11" y2="8" stroke="#6b7280"'
-            ' stroke-width="2" stroke-linecap="round"/>'
-            '</svg>'
-        ),
-    }
-    return icons.get(status, icons["planned"])
+    """Return an inline Lucide SVG icon for control status."""
+    return status_icon_svg(status, size=16)
 
 
 def _escape_html(text: str) -> str:
@@ -605,14 +582,8 @@ def _write_ssp_html(
     </div>'''
 
     # Attestation
-    shield_svg = (
-        '<svg width="16" height="16" viewBox="0 0 16 16" fill="none">'
-        '<path d="M8,1 L14,3.5 L14,7.5 C14,11 11,13.5 8,15 C5,13.5 2,11 2,7.5'
-        ' L2,3.5 Z" stroke="#10b981" stroke-width="1.2"/>'
-        '<polyline points="5.5,8 7.5,10 10.5,6" fill="none" stroke="#6ee7b7"'
-        ' stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
-        '</svg>'
-    )
+    shield_svg = icon_svg("shield-check", size=16, color="#10b981")
+
     if signature and public_key:
         attestation_html = f'''
     <div class="section">

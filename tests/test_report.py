@@ -108,7 +108,7 @@ def test_write_report_with_budget(tmp_path: Path):
     assert "$0.0123" in content
 
 
-def test_write_report_severity_icons(tmp_path: Path):
+def test_write_report_severity_labels(tmp_path: Path):
     report_path = write_report(
         repo_path=tmp_path,
         run_id="severity-run-12",
@@ -125,5 +125,5 @@ def test_write_report_severity_icons(tmp_path: Path):
         },
     )
     content = report_path.read_text()
-    assert "🔴" in content  # critical
-    assert "⚪" in content  # info
+    assert "[CRITICAL]" in content
+    assert "[INFO]" in content

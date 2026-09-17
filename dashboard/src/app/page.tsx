@@ -154,7 +154,7 @@ function EventStream({ events }: { events: StreamEvent[] }) {
   };
 
   const getLabel = (ev: StreamEvent) => {
-    if (ev.type === "agent_call") return `${ev.agent} → ${ev.detail || ""}`;
+    if (ev.type === "agent_call") return `${ev.agent}: ${ev.detail || ""}`;
     if (ev.type === "tool_call") return `${ev.agent || "agent"} called ${ev.tool}`;
     if (ev.type === "pipeline_event") return ev.event_name || "";
     if (ev.type === "plan_ready") return "Plan ready";
