@@ -422,6 +422,9 @@ Agents don't receive raw file dumps. Context flows through layers:
 | 2 | Ed25519 software signing | Keypair exists (after `honeymoon init`) |
 | 3 | Unsigned JSONL | No PyNaCl and no Zephyr |
 
+Zephyr is optional. A standard install signs everything with the built-in Ed25519 backend; Zephyr
+is only used when its binary is already on your PATH.
+
 ---
 
 ## Governance & Safety
