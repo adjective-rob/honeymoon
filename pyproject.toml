@@ -68,6 +68,10 @@ include = ["honeymoon*"]
 target-version = "py311"
 line-length = 100
 
+# Pin the rule set explicitly so results don't shift with ruff's defaults across versions
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
 # Prevent Pytest from scanning the whole repo for "test_*.py" files
 [tool.pytest.ini_options]
 testpaths = ["tests"]
