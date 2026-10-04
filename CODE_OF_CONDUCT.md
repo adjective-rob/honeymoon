@@ -18,6 +18,6 @@ representing the project in public.
 
 ## Reporting
 
-Report unacceptable behavior to **security@adjective.us**. Reports are reviewed promptly and kept
+Report unacceptable behavior through **https://adjective.us**. Reports are reviewed promptly and kept
 confidential. Maintainers may remove, edit, or reject contributions that violate this Code of
 Conduct, and may temporarily or permanently ban contributors for behavior they deem inappropriate.

@@ -241,6 +241,7 @@ Thumbs.db
 
 # Projects
 .glitchlab/tasks/
+.glitchlab/
 
 # Claude Stuff
 .claude/settings.local.json

@@ -33,7 +33,7 @@ We welcome reports concerning security flaws, especially those related to:
 Please **do not open a public GitHub issue** for security vulnerabilities. Instead:
 
 1. Draft a detailed report including steps to reproduce.
-2. Email the report to **security@adjective.us**.
+2. Reach out to us through **https://adjective.us**.
 3. We will acknowledge your report within 48 hours and provide a timeline for resolution.
 
 ## 🔒 Security Architecture
