@@ -1,6 +1,6 @@
 // WebSocket connection to the Honeymoon daemon
 
-type Listener = (data: any) => void;
+type Listener<T = unknown> = (data: T) => void;
 
 class HoneymoonSocket {
   private ws: WebSocket | null = null;
@@ -54,19 +54,20 @@ class HoneymoonSocket {
     this.ws = null;
   }
 
-  on(event: string, listener: Listener) {
+  // The daemon's messages are untyped JSON; callers declare the shape they expect per event.
+  on<T = unknown>(event: string, listener: Listener<T>) {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
-    this.listeners.get(event)!.add(listener);
-    return () => this.listeners.get(event)?.delete(listener);
+    this.listeners.get(event)!.add(listener as Listener);
+    return () => this.listeners.get(event)?.delete(listener as Listener);
   }
 
-  private emit(event: string, data: any) {
+  private emit(event: string, data: unknown) {
     this.listeners.get(event)?.forEach((fn) => fn(data));
   }
 
-  send(action: string, options: Record<string, any> = {}) {
+  send(action: string, options: Record<string, unknown> = {}) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ action, options }));
     }

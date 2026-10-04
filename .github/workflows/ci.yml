@@ -51,5 +51,7 @@ jobs:
           cache-dependency-path: dashboard/pnpm-lock.yaml
       - name: Install
         run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
       - name: Build
         run: pnpm build

@@ -949,7 +949,7 @@ export default function Home() {
       }),
 
       // Handle reports response directly
-      socket.on("reports", (data: any) => {
+      socket.on("reports", (data: { reports?: Report[] }) => {
         if (data.reports) {
           setReports(data.reports);
         }
@@ -977,7 +977,7 @@ export default function Home() {
         }, 5000);
       }),
 
-      socket.on("*", (data: any) => {
+      socket.on("*", (data: { type?: string; agent?: string; action?: string; reports?: Report[] }) => {
         // Stream events
         if (data.type && data.type !== "state" && data.type !== "reports") {
           setEvents((prev) => [...prev.slice(-300), data as StreamEvent]);
@@ -1000,7 +1000,7 @@ export default function Home() {
           }, 1000);
         }
         if (data.type === "command_started") {
-          setRunning(data.action);
+          setRunning(data.action ?? null);
         }
 
         // Handle reports response

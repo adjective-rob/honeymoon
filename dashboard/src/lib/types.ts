@@ -34,8 +34,8 @@ export interface Report {
   finding_count: number;
   findings: Finding[];
   summary: string;
-  verification: Record<string, any>;
-  budget: Record<string, any>;
+  verification: Record<string, unknown>;
+  budget: Record<string, unknown>;
   signed: boolean;
 }
 
@@ -50,15 +50,15 @@ export interface DaemonState {
   report_count: number;
   ledger: LedgerEntry[];
   running: string | null;
-  event_buffer: any[];
+  event_buffer: PipelineEvent[];
 }
 
 export interface PipelineEvent {
   event_type: string;
   agent_id: string;
   timestamp: string;
-  payload: Record<string, any>;
-  metadata?: Record<string, any>;
+  payload: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
   run_id?: string;
   action_id?: string;
   _daemon_ts?: string;

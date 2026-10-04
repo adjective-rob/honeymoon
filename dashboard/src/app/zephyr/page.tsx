@@ -1,7 +1,8 @@
 "use client";
 
-import { Shield, ArrowRight, Lock, Hexagon, FileCheck, Key, Fingerprint, GitBranch, CheckCircle2, XCircle, ChevronDown, Package, ShieldCheck, BadgeCheck } from "lucide-react";
+import { Shield, ArrowRight, Lock, Hexagon, FileCheck, Key, Fingerprint, GitBranch, CheckCircle2, XCircle, Package, ShieldCheck, BadgeCheck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 
 // Inline icon sized for the monospace transcript blocks.
 function TermIcon({ icon: Icon, className = "" }: { icon: LucideIcon; className?: string }) {
@@ -15,7 +16,7 @@ export default function ZephyrPage() {
 
         {/* Header */}
         <div className="mb-12">
-          <a href="/" className="text-xs text-[#8A7D65] hover:text-[#D4B56A] transition-colors mb-4 inline-block">&larr; Back to Dashboard</a>
+          <Link href="/" className="text-xs text-[#8A7D65] hover:text-[#D4B56A] transition-colors mb-4 inline-block">&larr; Back to Dashboard</Link>
           <h1 className="text-4xl font-bold tracking-tight text-[#e5e7eb] mb-3">
             Zephyr <span className="text-[#D4B56A]">SBOF</span>
           </h1>
@@ -85,7 +86,7 @@ export default function ZephyrPage() {
 
             {/* Signing envelope example */}
             <div className="rounded-sm bg-[#141414] border border-[#3D382E] p-5 font-mono text-[12px] leading-relaxed">
-              <div className="text-[#8A7D65] mb-2">// Signed envelope (audit.jsonl)</div>
+              <div className="text-[#8A7D65] mb-2">{"// Signed envelope (audit.jsonl)"}</div>
               <div className="text-[#e5e7eb]">{"{"}</div>
               <div className="pl-4">
                 <span className="text-[#D4B56A]">&quot;label&quot;</span>: <span className="text-emerald-400">&quot;act-7f3a2b1e&quot;</span>,
