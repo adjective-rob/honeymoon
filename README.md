@@ -230,7 +230,7 @@ The Red Team thinks like a penetration tester. It hunts for:
 - Hardcoded secrets and API keys
 - Privilege escalation via trust boundary gaps
 
-Every step is Zephyr-signed. The output is a replayable proof chain.
+Every step is signed. The output is a replayable proof chain.
 
 ### honeymoon harden
 
@@ -400,7 +400,7 @@ Agents don't receive raw file dumps. Context flows through layers:
 
 | What | How | Where |
 |------|-----|-------|
-| **Pipeline events** | Zephyr hardware signing (or Ed25519 fallback) | `.honeymoon/logs/audit.jsonl` |
+| **Pipeline events** | Ed25519 | `.honeymoon/logs/audit.jsonl` |
 | **Investigation reports** | Ed25519 | `.honeymoon/reports/{id}.md` |
 | **Hardening ledger entries** | Ed25519 | `.honeymoon/ledger.jsonl` |
 
@@ -418,12 +418,8 @@ Agents don't receive raw file dumps. Context flows through layers:
 
 | Priority | Backend | When |
 |----------|---------|------|
-| 1 | Zephyr hardware signing | `zephyr` binary in PATH |
-| 2 | Ed25519 software signing | Keypair exists (after `honeymoon init`) |
-| 3 | Unsigned JSONL | No PyNaCl and no Zephyr |
-
-Zephyr is optional. A standard install signs everything with the built-in Ed25519 backend; Zephyr
-is only used when its binary is already on your PATH.
+| 1 | Ed25519 software signing | Keypair exists (after `honeymoon init`) |
+| 2 | Unsigned JSONL | PyNaCl unavailable |
 
 ---
 
@@ -477,7 +473,7 @@ python3 honeymoon/reporting/serve.py --repo ~/my-project
 
 | Tab | What it shows |
 |-----|--------------|
-| **Attestation** | Zephyr-signed event timeline with signature badges, pipeline progress bars, expandable event details |
+| **Attestation** | Signed event timeline with signature badges, pipeline progress bars, expandable event details |
 | **Findings** | Investigation reports with severity pills, expandable finding cards, evidence blocks, cost breakdown |
 | **Hardening** | Posture score chart (SVG sparkline), run history with new/resolved indicators, trend tracking |
 
@@ -542,7 +538,7 @@ honeymoon/
 │   ├── bulk.yaml          # Standard dev pipeline
 │   └── monitor.yaml       # Continuous watch (planned)
 ├── signing.py             # Ed25519 event signing
-├── audit_logger.py        # Zephyr/Ed25519 audit trail
+├── audit_logger.py        # Signed audit trail
 └── ...                    # Router, indexer, scope, brain, swarm, etc.
 ```
 
@@ -553,7 +549,7 @@ honeymoon/
 - **Local-first.** Runs on your machine. No cloud dependency.
 - **Dumb model proof.** Works with `gpt-5.4-mini`. Doesn't need frontier models.
 - **Repo-agnostic.** Python, Rust, TypeScript, Go — anything with source files.
-- **Signed everything.** Events (Zephyr), reports (Ed25519), ledger (Ed25519).
+- **Signed everything.** Events, reports, and ledger entries (Ed25519).
 - **Find → Fix → Verify → Sign.** The closed loop is the product.
 - **Default safe.** SPEC.md output. User owns liability. `--fix` is opt-in.
 - **Stigmergic.** Agents communicate through the environment, not direct messages.

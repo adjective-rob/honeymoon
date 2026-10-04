@@ -866,11 +866,11 @@ function TrustPanel({ trust }: { trust: TrustData | null }) {
               >
                 {trust.key_algorithm}
               </span>
-              {trust.zephyr_available && (
+              {trust.hardware_signing_available && (
                 <span
                   className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider flex items-center gap-1"
                   style={{ background: "rgba(168,85,247,0.12)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.3)" }}
-                  title="Zephyr hardware signing is available. Keys are bound to this physical device."
+                  title="Hardware signing is available. Keys are bound to this physical device."
                 >
                   <Key className="w-2.5 h-2.5" />
                   Hardware Signing
@@ -1067,16 +1067,6 @@ export default function Home() {
               <Stat label="Reports" value={state?.report_count ?? 0} tooltip="Investigation and simulation reports generated" />
               <Stat label="Issues" value={state?.finding_count ?? 0} tooltip="Active security findings from the most recent hardening run" />
             </div>
-            <a
-              href="/zephyr"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-sm text-[11px] font-semibold
-                         bg-[#D4B56A]/[0.08] border border-[#D4B56A]/20 text-[#D4B56A]
-                         hover:bg-[#D4B56A]/[0.15] hover:border-[#D4B56A]/30 transition-all cursor-pointer"
-              title="Learn how Zephyr cryptographic signing works — signing, verification, and the Gatekeeper"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              Zephyr
-            </a>
           </div>
         </header>
 

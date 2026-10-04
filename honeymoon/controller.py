@@ -137,7 +137,7 @@ class Controller:
     def run(self, task: Task) -> dict[str, Any]:
         """Execute the full agent pipeline for a task."""
 
-        # Generate Session Identity for Zephyr
+        # Generate Session Identity for the audit trail
         run_id = str(uuid.uuid4())
         bus.emit(
             event_type="run.started",

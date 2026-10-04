@@ -85,8 +85,8 @@ def _extract_prelude_evidence(prelude: dict[str, Any]) -> dict[str, list[str]]:
     # -- AU: Audit --
     add("au-2", "HONEYMOON audit logger captures all pipeline events to audit.jsonl")
     add("au-3", "Audit records include: event_id, timestamp, event_type, run_id, agent_id, payload")
-    add("au-9", "Audit trail uses Zephyr cryptographic signing (append-only, tamper-evident)")
-    add("au-10", "All pipeline events signed with Ed25519 via Zephyr — non-repudiation enforced")
+    add("au-9", "Audit trail is cryptographically signed (append-only, tamper-evident)")
+    add("au-10", "All pipeline events signed with Ed25519 — non-repudiation enforced")
     add("au-12", "Audit events generated automatically during pipeline execution")
 
     # -- CA: Assessment --
@@ -95,7 +95,7 @@ def _extract_prelude_evidence(prelude: dict[str, Any]) -> dict[str, list[str]]:
 
     # -- CM: Configuration Management --
     add("cm-2", f"Baseline configuration managed via config.yaml; runtime: {stack.get('runtime', 'unknown')}")
-    add("cm-3", "Git version control with Zephyr-signed commits and pre-push gatekeeper")
+    add("cm-3", "Git version control; every pipeline change is recorded in the signed audit trail")
     if deps:
         add("cm-8", f"Dependency inventory: {len(deps)} runtime + {len(dev_deps)} dev packages tracked")
     if code_style.get("linter"):
@@ -126,14 +126,14 @@ def _extract_prelude_evidence(prelude: dict[str, Any]) -> dict[str, list[str]]:
 
     # -- SC: System & Communications Protection --
     if "pynacl" in deps:
-        add("sc-12", "Ed25519 keypair for report signing; Zephyr hardware signing for events")
+        add("sc-12", "Ed25519 keypair for report, ledger, and event signing")
         add("sc-13", "Cryptographic signing via PyNaCl/libsodium (Ed25519)")
     if any("tls" in str(c).lower() or "https" in str(c).lower() for c in security_constraints):
         add("sc-8", "TLS/HTTPS required per security constraints")
 
     # -- SI: System & Information Integrity --
     add("si-2", "HONEYMOON fix loop with automated debugging and patch application")
-    add("si-7", "Software integrity verified via Zephyr digest and gatekeeper")
+    add("si-7", "Software integrity verified via signed audit trail and report signature verification")
     if code_style.get("linter"):
         add("si-3", f"Code quality enforcement via {code_style['linter']} linter")
 

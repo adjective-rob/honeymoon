@@ -35,7 +35,7 @@ from honeymoon.controller import Controller, Task
 from honeymoon.history import TaskHistory
 from honeymoon.parallel import run_parallel
 from honeymoon.prelude import PreludeContext
-from honeymoon.audit_logger import AuditLogger  # <--- NEW: Import the Zephyr subscriber
+from honeymoon.audit_logger import AuditLogger  # audit trail subscriber
 
 # Load .env from current directory or home
 load_dotenv()
@@ -199,7 +199,7 @@ def interactive(
     if not test_cmd:
         test_cmd = _detect_test_command(repo)
 
-    # --- NEW: Initialize the Zephyr Audit Logger subscriber ---
+    # --- Initialize the Audit Logger subscriber ---
     AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
 
     controller = Controller(
@@ -261,7 +261,7 @@ def status(
     tools_table.add_column("Status")
 
     import shutil
-    for tool in ["git", "gh", "cargo", "python3", "node", "prelude", "zephyr"]:
+    for tool in ["git", "gh", "cargo", "python3", "node", "prelude"]:
         found = shutil.which(tool)
         s = f"[green]✓ {found}[/]" if found else "[dim]✗ Not found[/]"
         tools_table.add_row(tool, s)
@@ -324,8 +324,8 @@ def init(
 # Set project-specific boundaries:
 # boundaries:
 #   protected_paths:
-#     - "crates/zephyr-core"
-#     - "crates/zephyr-envelope"
+#     - "src/core"
+#     - "src/auth"
 
 # Adjust limits:
 # limits:
@@ -476,7 +476,7 @@ def batch(
     if not test_cmd:
         test_cmd = _detect_test_command(repo)
 
-    # --- NEW: Initialize the Zephyr Audit Logger subscriber ---
+    # --- Initialize the Audit Logger subscriber ---
     AuditLogger(log_file=repo / ".honeymoon" / "logs" / "audit.jsonl")
 
     results = run_parallel(

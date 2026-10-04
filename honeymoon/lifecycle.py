@@ -314,7 +314,7 @@ def post_run(
     task: Task,
     result: dict,
 ) -> dict:
-    """Quality scoring, Zephyr event emission, session entry, cleanup."""
+    """Quality scoring, event emission, session entry, cleanup."""
     quality_score = calculate_quality_score(
         ctx.router.budget.summary(), ctx.state
     )

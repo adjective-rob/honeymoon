@@ -68,7 +68,7 @@ class ToolExecutor:
         Args:
             command: Shell command string
             timeout: Max seconds before kill
-            run_id: Execution session ID for Zephyr tracking
+            run_id: Execution session ID for audit tracking
             agent_id: The identifier of the agent invoking the tool
 
         Returns:
@@ -77,7 +77,7 @@ class ToolExecutor:
         action_id = f"act-{uuid.uuid4()}"
         agent_identity = agent_id or "system"
 
-        # Emit intent to execute (Zephyr can hash the command intent here)
+        # Emit intent to execute (the audit logger can hash the command intent here)
         bus.emit(
             event_type="action.started",
             payload={"command": command, "working_dir": str(self.working_dir)},
@@ -164,7 +164,7 @@ class ToolExecutor:
 
         self._execution_log.append(result)
 
-        # Emit completion for Zephyr to sign the outcome
+        # Emit completion so the outcome can be signed
         self._emit_completion(result, run_id, agent_identity, action_id)
 
         if result.success:
@@ -181,7 +181,7 @@ class ToolExecutor:
         agent_id: str, 
         action_id: str
     ) -> None:
-        """Helper to broadcast the result to the EventBus so Zephyr can sign it."""
+        """Helper to broadcast the result to the EventBus so it can be signed."""
         bus.emit(
             event_type="action.completed",
             payload={

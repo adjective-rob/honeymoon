@@ -138,7 +138,7 @@ class HoneymoonDaemon:
             "public_key_short": f"{pub_key[:4]}...{pub_key[-4:]}" if pub_key and len(pub_key) >= 8 else pub_key,
             "key_algorithm": "Ed25519" if signer else None,
             "key_path": str(key_path) if key_path.exists() else None,
-            "zephyr_available": shutil.which("zephyr") is not None,
+            "hardware_signing_available": shutil.which("zephyr") is not None,
             "signed_events": signed_events,
             "unsigned_events": unsigned_events,
             "signed_reports": signed_reports,

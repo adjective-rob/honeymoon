@@ -2,7 +2,7 @@
 # Adversarial vulnerability simulation with signed attack chains.
 #
 # Red agent traces exploitation paths. Blue agent evaluates feasibility.
-# Every step is Zephyr-signed, creating a replayable proof chain.
+# Every step is signed, creating a replayable proof chain.
 #
 # Use cases:
 #   - "Simulate an attacker who found the SQL injection in auth.py"

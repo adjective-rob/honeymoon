@@ -3,7 +3,7 @@ HONEYMOON Event Emitter — Unified event logging.
 
 Every meaningful event in the pipeline flows through emit_event(), which:
   1. Appends to TaskState.events (structured in-memory log)
-  2. Broadcasts via EventBus (Zephyr signs it, audit logger persists it)
+  2. Broadcasts via EventBus (audit logger signs and persists it)
 
 This replaces the three separate _log_event helpers that only did #1.
 """
@@ -31,7 +31,7 @@ def emit_event(
     """Log an event to TaskState AND broadcast it via the EventBus.
 
     This is the single chokepoint for all pipeline observability.
-    Every call here produces a Zephyr-signable event.
+    Every call here produces a signable event.
     """
     now = datetime.now(timezone.utc).isoformat()
     payload = data or {}
@@ -46,7 +46,7 @@ def emit_event(
     if ctx.state:
         ctx.state.events.append(event_record)
 
-    # 2. Broadcast via EventBus (Zephyr signs, audit logger persists)
+    # 2. Broadcast via EventBus (audit logger signs and persists)
     bus.emit(
         event_type=event_type,
         payload=payload,

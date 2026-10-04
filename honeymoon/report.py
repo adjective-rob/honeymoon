@@ -58,7 +58,7 @@ def _load_provenance(repo_path: Path, run_id: str) -> list[dict[str, Any]]:
             continue
         try:
             entry = json.loads(line)
-            # Zephyr-signed entries have payload as a JSON string
+            # Externally signed entries have payload as a JSON string
             payload = entry.get("payload", "")
             if isinstance(payload, str):
                 payload_data = json.loads(payload)
@@ -354,7 +354,7 @@ def _build_provenance_html(provenance: list[dict[str, Any]]) -> str:
     summary = (
         f'<div class="provenance-summary">'
         f'<strong>{len(provenance)}</strong> events signed by '
-        f'<span class="mono">{signer_display}</span> via Zephyr'
+        f'<span class="mono">{signer_display}</span>'
         f'</div>'
     )
 

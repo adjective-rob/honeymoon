@@ -542,7 +542,7 @@ Investigate and fix. Call `done` when the tests pass."""
                 elif tc_name == "get_error" or (tc_name == "run_check" and not tc_args.get("command")):
                     if tool_executor:
                         try:
-                            # Use the sandboxed executor, passing IDs for Zephyr attestation
+                            # Use the sandboxed executor, passing IDs for attestation
                             tres = tool_executor.execute(
                                 command=test_cmd,
                                 run_id=context.run_id,
@@ -562,7 +562,7 @@ Investigate and fix. Call `done` when the tests pass."""
                     check_failed = False
                     if tool_executor:
                         try:
-                            # Use the sandboxed executor, passing IDs for Zephyr attestation
+                            # Use the sandboxed executor, passing IDs for attestation
                             tool_res = tool_executor.execute(
                                 command=cmd,
                                 run_id=context.run_id,

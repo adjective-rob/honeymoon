@@ -71,7 +71,7 @@ export interface TrustData {
   public_key_short: string | null;
   key_algorithm: string | null;
   key_path: string | null;
-  zephyr_available: boolean;
+  hardware_signing_available: boolean;
   signed_events: number;
   unsigned_events: number;
   signed_reports: number;

@@ -180,13 +180,13 @@ Frontend: `cd dashboard && pnpm dev` (port 3000)
 | `.honeymoon/reports/{id}.json` | Structured data for machine consumption |
 | `.honeymoon/reports/SPEC-{id}.md` | Signed remediation plan (deep only) |
 | `.honeymoon/ledger.jsonl` | Append-only signed hardening ledger |
-| `.honeymoon/logs/audit.jsonl` | Zephyr-signed event trail |
+| `.honeymoon/logs/audit.jsonl` | Signed event trail |
 | `.context/decisions.json` | Prelude decisions from medium+ findings |
 
 ## Signing
 
 Three layers:
-1. **Pipeline events** — Zephyr hardware signing (or Ed25519 fallback) → `audit.jsonl`
+1. **Pipeline events** — Ed25519 → `audit.jsonl`
 2. **Reports** — Ed25519 → `.md` attestation block
 3. **Ledger entries** — Ed25519 → `ledger.jsonl`
 

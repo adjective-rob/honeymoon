@@ -13,7 +13,7 @@ class HiveEvent(BaseModel):
     agent_id: Optional[str] = None
     action_id: Optional[str] = None
     payload: Dict[str, Any]
-    metadata: Dict[str, Any] = Field(default_factory=dict)  # For Zephyr signatures & scores
+    metadata: Dict[str, Any] = Field(default_factory=dict)  # For signatures & scores
 
 
 class EventBus:

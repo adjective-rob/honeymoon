@@ -5,9 +5,9 @@ Scans a repository for actionable findings and generates
 well-scoped HONEYMOON task YAML files.
 
 Usage:
-    honeymoon audit --repo ~/Desktop/Zephyr
-    honeymoon audit --repo ~/Desktop/Zephyr --kind missing_doc
-    honeymoon audit --repo ~/Desktop/Zephyr --dry-run
+    honeymoon audit --repo ~/my-project
+    honeymoon audit --repo ~/my-project --kind missing_doc
+    honeymoon audit --repo ~/my-project --dry-run
 """
 
 from .scanner import Scanner, ScanResult, Finding
