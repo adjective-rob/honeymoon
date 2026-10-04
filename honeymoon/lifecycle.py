@@ -24,6 +24,7 @@ from rich.prompt import Confirm
 from honeymoon.controller_utils import calculate_quality_score
 from honeymoon.display import build_pr_body, print_budget_summary
 from honeymoon.event_bus import bus
+from honeymoon.identity import __version__
 from honeymoon.events import emit_event
 from honeymoon.indexer import build_index
 from honeymoon.run_context import RunContext
@@ -46,7 +47,7 @@ def print_banner(task: Task) -> None:
         f"[bold green]Task:[/] {task.objective[:120]}\n"
         f"[bold]ID:[/] {task.task_id}  |  [bold]Source:[/] {task.source}\n"
         f"[bold]Risk:[/] {task.risk_level}  |  [bold]Mode:[/] {task.mode.upper()}",
-        title="⚡ HONEYMOON v4.5.0",
+        title=f"⚡ HONEYMOON v{__version__}",
         subtitle="Build Weird. Ship Clean.",
         border_style="bright_green",
     ))

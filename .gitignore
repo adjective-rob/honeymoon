@@ -259,3 +259,6 @@ tasks_for_claude_code/.glitchlab/task_state.json
 
 # Local demo scratch notes
 DEMO.md
+
+# Dashboard source (the Python `lib/` rule above would otherwise hide it)
+!dashboard/src/lib/

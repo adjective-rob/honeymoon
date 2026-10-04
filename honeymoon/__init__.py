@@ -8,6 +8,6 @@
 ╚══════════════════════════════════════════════════════════╝
 """
 
-__version__ = "4.5.0"
+from honeymoon.identity import __version__  # noqa: F401
 __codename__ = "HONEYMOON"
 __tagline__ = "Build Weird. Ship Clean."

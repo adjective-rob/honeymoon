@@ -1,102 +1,100 @@
-# Contributing to ⚡ HONEYMOON
+# Contributing to HONEYMOON
 
-First off, thank you for considering contributing to HONEYMOON! It’s people like you that make HONEYMOON a better tool for everyone.
+Thanks for considering a contribution. HONEYMOON is an agentic dev and security engine, and it has
+a few architectural rules worth knowing before you dive in.
 
-As an agentic dev engine, HONEYMOON has unique architectural patterns that you should understand before diving in.
+## Architecture in brief
 
-## 🧠 Architectural Overview
+HONEYMOON is a **deterministic orchestrator** (the Controller) that drives a pipeline of agents.
 
-HONEYMOON is built as a **deterministic orchestrator** (the Controller) that manages a pipeline of **stateless agents**.
+1. **Controller** (`honeymoon/controller.py`) runs the pipeline:
+   Plan → Implement → Debug → Testgen → Security → Release → Archivist.
+2. **Agents** (`honeymoon/agents/`) inherit from `BaseAgent` and implement `build_messages()` and
+   `parse_response()`.
+3. **Missions** (`honeymoon/missions/`) are YAML profiles that override prompts, tools, and
+   pipeline steps for investigate / simulate / harden runs without changing code.
+4. **Governance** (`honeymoon/governance/`) enforces protected paths.
+5. **Workspace** (`honeymoon/workspace/`) isolates every run in a git worktree and gates commands
+   through the `ToolExecutor` allowlist.
 
-1. **The Controller (`honeymoon/controller.py`)**: The brainstem. It manages the linear pipeline: Index → Plan → Implement → Test → Security → Release → PR.
+See the [README](README.md) and [`docs/`](docs/) for the full picture.
 
-
-2. 
-**Stateless Agents (`honeymoon/agents/`)**: Each agent is a specialized module with its own system prompt and JSON output schema.
-
-
-3. 
-**Governance (`honeymoon/governance/`)**: Enforces safety boundaries and protected paths.
-
-
-4. 
-**Workspace (`honeymoon/workspace/`)**: Uses git worktrees to ensure that agent experimentation never touches your main branch directly.
-
-
-
-## 🛠 Getting Started
+## Getting started
 
 ### Prerequisites
 
-* Python 3.11+
-* Git
-* API Keys for Gemini (Google) and/or Claude (Anthropic) 
+- Python 3.11+
+- Git
+- An API key for any [LiteLLM](https://github.com/BerriAI/litellm)-supported provider
+  (the default routing uses OpenAI)
+- Node 22+ and pnpm, only if you are working on the dashboard
 
+### Local setup
 
-
-### Local Setup
-
-1. Fork the repository and clone it locally.
-2. Create a virtual environment: `python -m venv .venv && source .venv/bin/activate`
-3. Install in editable mode with dev dependencies:
 ```bash
+git clone https://github.com/<your-fork>/honeymoon
+cd honeymoon
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-
+cp .env.example .env   # then add your key(s)
 ```
 
-
-4. Configure your environment:
-```bash
-cp .env.example .env
-# Add your real keys to .env
-
-```
-
-
-
-## 🧪 Running Tests
-
-Before submitting a Pull Request, ensure all tests pass:
+## Before you open a pull request
 
 ```bash
-python -m pytest
-
+python -m pytest tests/
+python -m ruff check honeymoon/
 ```
 
-We use **Ruff** for linting and formatting. Please run it to keep the code "clean":
+Both must pass; CI runs the same commands on every pull request. If you touched the dashboard,
+also run `pnpm build` inside `dashboard/`.
 
-```bash
-python -m ruff check .
+Please keep pull requests focused:
 
-```
+- Make the smallest change that solves the problem. No drive-by refactors or renames.
+- Add or update a test for behavior changes.
+- Do not change signatures on the public API surface (`BaseAgent`, `AgentContext`, `AgentResult`,
+  `Router`, `Workspace`, `ToolExecutor`, `EventBus`, `BoundaryEnforcer`, `SymbolIndex`,
+  `TaskState`) or the defaults in `honeymoon/config.yaml` without discussing it in an issue first.
+- Note user-visible changes in `CHANGELOG.md`.
 
-## 🤝 How to Contribute
+## Common contributions
 
-### 🤖 Adding a New Agent
+### Adding an agent
 
-If you want to add a new specialist (e.g., a "Documentation Auditor" or "Performance Profiler"):
+1. Create a module in `honeymoon/agents/`.
+2. Inherit from `BaseAgent` (`honeymoon/agents/__init__.py`).
+3. Implement `build_messages()` and `parse_response()`.
+4. Register it and run `honeymoon doctor` to verify registry integrity.
 
-1. Create a new module in `honeymoon/agents/`.
-2. Inherit from `BaseAgent` in `honeymoon/agents/__init__.py`.
-3. Define a clear `system_prompt` and implement `parse_response`.
-4. Register the agent in the `Controller`.
+### Adding a mission
 
-### 🛠 Adding a New Tool
+Add a YAML profile to `honeymoon/missions/`. Missions reuse existing agent classes, so most new
+security workflows need no Python changes.
 
-To give agents more capabilities (e.g., `docker` or `sql-lint` support):
+### Adding an allowed tool
 
-1. Add the base command to the `allowed_tools` list in `honeymoon/config.yaml`.
-2. Ensure it is safe and does not allow arbitrary shell injection.
+Tools are an explicit security boundary. Propose additions to `allowed_tools` in an issue first,
+and explain why the command is safe under `shell=False` execution.
 
-## 📜 Development Principles
+## Conventions
 
-* Build Weird. Ship Clean.: Agents can be chaotic, but the output must be surgical and high-quality.
+- Type hints everywhere, Pydantic v2 models.
+- Ruff, line length 100.
+- Loguru for logging; no `print()` in library code. Rich for CLI output.
+- Absolute imports only (`from honeymoon...`).
 
+## Design principles
 
-* **Local-First**: We avoid cloud dependencies other than the model APIs.
+- **Local-first.** No cloud dependencies beyond the model APIs.
+- **Deterministic orchestration.** The sequence of events is explicit, not emergent.
+- **Bounded.** Budget caps, tool allowlists, and circuit breakers on everything.
+- **Signed everything.** Events, reports, and ledger entries are cryptographically attested.
 
+## Security issues
 
-* **Deterministic Orchestration**: The sequence of events should be explicit, not governed by "emergent behavior".
+Please do not file public issues for vulnerabilities. See [SECURITY.md](SECURITY.md).
 
+## Code of conduct
 
-* **Under 2k Lines**: Keep the core engine lean. If a feature adds significant bloat, consider making it an optional plugin.
+Participation in this project is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).

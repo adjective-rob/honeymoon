@@ -27,6 +27,10 @@
 
 # HONEYMOON v5.0.0
 
+[![CI](https://github.com/adjective-rob/honeymoon/actions/workflows/ci.yml/badge.svg)](https://github.com/adjective-rob/honeymoon/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-D4B56A.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+
 **The Hive Mind Dev Engine**
 
 A local-first, multi-agent development and security engine. Builds code, investigates codebases, simulates attacks, and tracks security posture — all with cryptographic attestation. Every agent action is signed. Every report is signed. Every finding is provable.
@@ -554,6 +558,14 @@ honeymoon/
 
 ---
 
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to get set up, and the
+[Code of Conduct](CODE_OF_CONDUCT.md). To report a vulnerability, follow [SECURITY.md](SECURITY.md)
+rather than opening a public issue.
+
+---
+
 ## License
 
-MIT — Adjective LLC
+[MIT](LICENSE) — Adjective LLC
